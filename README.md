@@ -13,7 +13,7 @@ apt update && apt upgrade -y && update-grub && sleep 2 && reboot
 
 
 ### WAJIB IZIN IP CONTACT ADMIN
-Wa.me/6283845852328
+https//Wa.me/6283845852328
 
 
 
