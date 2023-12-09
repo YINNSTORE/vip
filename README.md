@@ -12,8 +12,8 @@
 <pre><code>wget https://raw.githubusercontent.com/YINNSTORE/vip/main/update.sh && chmod +x update.sh && ./update.sh</code></pre>
 
 
-### WAJIB IZIN IP CONTACT ADMIN
-https//Wa.me/6283845852328
+### WAJIB IZIN IP CONTACT ADMIN ©YINN STORE
+https://wa.me/6283845852328
 
 
 
