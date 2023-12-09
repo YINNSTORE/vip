@@ -12,6 +12,11 @@ apt update && apt upgrade -y && update-grub && sleep 2 && reboot
 <pre><code>wget https://raw.githubusercontent.com/YINNSTORE/vip/main/update.sh && chmod +x update.sh && ./update.sh</code></pre>
 
 
+### WAJIB IZIN IP CONTACT ADMIN
+Wa.me/6283845852328
+
+
+
 ### TESTED ON OS 
 - UBUNTU 20.04.05
 - DEBIAN 10
