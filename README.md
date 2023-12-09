@@ -5,7 +5,7 @@
 </code></pre>
 
 ### UPDATE SCRIPT
-<pre><code>wget https://raw.githubusercontent.com/myvpn1/vip/main/update.sh && chmod +x update.sh && ./update.sh</code></pre>
+<pre><code>wget https://raw.githubusercontent.com/YINNSTORE/vip/main/update.sh && chmod +x update.sh && ./update.sh</code></pre>
 
 
 ### TESTED ON OS 
