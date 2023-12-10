@@ -4,7 +4,7 @@ apt install jq curl -y
 #read -p "Masukan Domain (contoh : Dragon)" domen
 DOMAIN=elvaretta-store.my.id
 sub=$(</dev/urandom tr -dc a-z0-9 | head -c5)
-dns=${sub}elvaretta-store.my.id
+dns=${sub}.elvaretta-store.my.id
 CF_ID=budi.tejosari@gmail.com
 CF_KEY=4059968c4506940e1306bad534a8843847efb
 set -euo pipefail
