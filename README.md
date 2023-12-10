@@ -21,6 +21,10 @@ https://wa.me/6283845852328
 - UBUNTU 20.04.05
 - DEBIAN 10
 
+### NOT SUPPORT OS
+- UBUNTU 22.04.05
+- DEBIAN 11 
+
 ### FITUR TAMBAHAN
 - Tambah Swap 1GiB
 - Pemasangan yang dinamis
