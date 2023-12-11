@@ -1,7 +1,7 @@
 #!/bin/bash
 MYIP=$(wget -qO- icanhazip.com);
 apt install jq curl -y
-#read -p "Masukan Domain (contoh : Dragon)" domen
+#read -p "Masukan Domain (contoh : Andyyuda)" domen
 DOMAIN=klmpk-tunneling.my.id
 sub=$(</dev/urandom tr -dc a-z0-9 | head -c5)
 dns=${sub}.klmpk-tunneling.my.id
