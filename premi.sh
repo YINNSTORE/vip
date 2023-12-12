@@ -17,6 +17,8 @@ GRAY="\e[1;30m"
 NC='\e[0m'
 red='\e[1;31m'
 green='\e[0;32m'
+TIME=$(date '+%d %b %Y')
+ipsaya=$(curl -sS ipv4.icanhazip.com)
 TIMES="10"
 CHATID="-1002015199453"
 KEY="6409879237:AAE1vPwbqfiWmRkV-AbCa6-tepM5w5FTGz0"
@@ -285,7 +287,7 @@ clear
 echo -e "   |\e[1;32mPlease Select a Domain Type Below \e[0m|"
 echo -e "   '----------------------------------'"
 echo -e "     \e[1;32m1)\e[0m Domain Sendiri"
-echo -e "     \e[1;32m2)\e[0m Gunakan Domain Random Khusus Digital ocean ISP LAIN ✖️ "
+echo -e "     \e[1;32m2)\e[0m Gunakan Domain Random Dari SC"
 echo -e "   ------------------------------------"
 read -p "   Please select numbers 1 or Any Button(Random) : " host
 echo ""
