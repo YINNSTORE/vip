@@ -1,9 +1,9 @@
 #!/bin/bash
 MYIP=$(wget -qO- icanhazip.com);
 apt install jq curl -y
-DOMAIN=vpn-premium.biz.id
+DOMAIN=Vpn-premium.biz.id
 sub=$(</dev/urandom tr -dc a-z0-9 | head -c5)
-dns=${sub}.vpn-premium.biz.id
+dns=${sub}.Vpn-premium.biz.id
 CF_ID=gabutcuy374@gmail.com
 CF_KEY=dc34a46f69303f212b92a5f003a76dfb7cee4
 set -euo pipefail
