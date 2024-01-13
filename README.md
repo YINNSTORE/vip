@@ -1,5 +1,5 @@
 <p align="center">
-<img src="https://readme-typing-svg.herokuapp.com?color=Aqua&center=true&vCenter=true&lines=YINN+VPN+TUNNELING+SERVICE" />
+<img src="https://readme-typing-svg.herokuapp.com?color=Green&center=true&vCenter=true&lines=YINN+VPN+TUNNELING+SERVICE" />
 </p>
 
 
