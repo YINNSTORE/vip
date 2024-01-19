@@ -5,6 +5,11 @@
 
 
 
+### INSTALL UDP-CUSTOM MANUAL
+<pre><code>wget https://raw.githubusercontent.com/YINNSTORE/vip/main/udp-custom.sh && chmod +x udp-custom.sh && ./udp-custom.sh</code></pre>
+
+
+
 ### UPDATE TERLEBIH DAHULU
 <pre><code>apt update && apt upgrade -y</code></pre>
 
