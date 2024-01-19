@@ -76,16 +76,6 @@ https://wa.me/6283845852328 ☎️
 - UDP CUSTOM 1-65535/100-700
 ```
 
-### SETTING CLOUDFLARE
-```
-- SSL/TLS : FULL
-- SSL/TLS Recommender : OFF
-- GRPC : ON
-- WEBSOCKET : ON
-- Always Use HTTPS : OFF
-- UNDER ATTACK MODE : OFF
-
-```
 ### INFO AUTOSCRIPT
 
 <!-- <img src="https://github.com/YINNSTORE/STRESS_vip/blob/main/foto/20220206_185236.png" width="200" ="200" --!>
