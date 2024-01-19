@@ -72,8 +72,8 @@ https://wa.me/6283845852328
 - UNDER ATTACK MODE : OFF
 
 
-# INFO AUTOSCRIPT
-
+### INFO AUTOSCRIPT
+```
 <!-- <img src="https://github.com/Bayu12345677/Stress_grab/blob/main/foto/20220206_185236.png" width="200" ="200" --!>
 
 <p>
@@ -85,3 +85,6 @@ https://wa.me/6283845852328
 <p align="center">
    <img src="https://img.shields.io/static/v1?label=tools&message=graber%20domain&color=blue&logo=jinja&logoColor=red"><br>
    <code><img src="https://img.shields.io/static/v1?label=made&message=indonesia&color=red"></code>
+</p>
+<br>
+<p>
