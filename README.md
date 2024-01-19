@@ -3,7 +3,7 @@
 
 
 
-<img src="https://img.shields.io/badge/Version-3.0.4-blue.svg"></h2>
+<img src="https://img.shields.io/badge/Version-5.6.0-blue.svg"></h2>
 <h2 align="center">AutoScript Install SSH & OpenVPN
 
 
