@@ -3,6 +3,20 @@
 
 
 
+<img src="https://img.shields.io/badge/Version-3.0.4-blue.svg"></h2>
+<h2 align="center">AutoScript Install SSH & OpenVPN
+
+
+<h2 align="center"> Supported Linux Distribution</h2>
+<p align="center"><img src="https://img.shields.io/static/v1?style=for-the-badge&logo=debian&label=Debian%209&message=Stretch&color=red"> <img src="https://img.shields.io/static/v1?style=for-the-badge&logo=debian&label=Debian%2010&message=Buster&color=red"></p>
+
+<p align="center"><img src="https://img.shields.io/badge/Service-OpenSSH-success.svg">  <img src="https://img.shields.io/badge/Service-Dropbear-success.svg">  <img src="https://img.shields.io/badge/Service-BadVPN-success.svg">  <img src="https://img.shields.io/badge/Service-Stunnel-success.svg">  <img src="https://img.shields.io/badge/Service-OpenVPN-success.svg">  <img src="https://img.shields.io/badge/Service-Squid3-success.svg">  <img   src="https://img.shields.io/badge/Service-Webmin-success.svg">   <img src="https://img.shields.io/badge/Service-Privoxy-success.svg">  <img src="https://img.shields.io/badge/Service-Xray-success.svg"> 
+
+
+## Commands : <img src="https://img.shields.io/static/v1?style=for-the-badge&logo=powershell&label=Code&message=Bash%20Script&color=lightgray">
+
+
+
 ### INSTALL UDP-CUSTOM MANUAL
 <pre><code>wget https://raw.githubusercontent.com/YINNSTORE/vip/main/udp-custom.sh && chmod +x udp-custom.sh && ./udp-custom.sh</code></pre>
 
