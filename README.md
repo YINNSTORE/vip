@@ -71,8 +71,8 @@ https://wa.me/6283845852328
 - UNDER ATTACK MODE : OFF
 
 
-### INFO AUTOSCRIPT
-```
+# INFO AUTOSCRIPT
+`
 <!-- <img src="https://github.com/YINNSTORE/STRESS_vip/blob/main/foto/20220206_185236.png" width="200" ="200" --!>
 
 <p>
