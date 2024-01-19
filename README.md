@@ -1,5 +1,4 @@
-<p align="center"><img src="https://readme-typing-svg.herokuapp.com?color=%2336BCF7&center=true&vCenter=true&lines=YINN+VPN+TUNNELING+SERVICE" />
-</p>
+<p align="center"><img src="https://readme-typing-svg.herokuapp.com?color=%2336BCF7&center=true&vCenter=true&lines=YINN+VPN+TUNNELING+SERVICE" /></p>
 <p align='center'><a href="https://api.daily.dev/get?r=fisabiliyusri"><img src="https://raw.githubusercontent.com/fisabiliyusri/.github/main/kotori2.png?r=82s" width="150" alt="Hayuk"/></a></p>
 
 
@@ -71,8 +70,7 @@ https://wa.me/6283845852328
 - UNDER ATTACK MODE : OFF
 
 ```
-### SETTING CLOUDFLARE
-```
+### INFO AUTOSCRIPT
 
 <!-- <img src="https://github.com/YINNSTORE/STRESS_vip/blob/main/foto/20220206_185236.png" width="200" ="200" --!>
 
