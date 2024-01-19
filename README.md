@@ -70,3 +70,17 @@ https://wa.me/6283845852328
 - WEBSOCKET : ON
 - Always Use HTTPS : OFF
 - UNDER ATTACK MODE : OFF
+
+# INFO AUTOSCRIPT
+
+<!-- <img src="https://github.com/YINNSTORE/Stress_grab/blob/main/foto/20220206_185236.png" width="200" ="200" --!>
+
+<p>
+   <img src="https://img.shields.io/github/forks/YINNSTORE/Stress_grab?color=cyan&logo=java&logoColor=yellow">
+   <img src="https://img.shields.io/github/stars/YINNSTORE/Stress_grab?color=green&logo=ruby&logoColor=red">
+   <img src="https://img.shields.io/static/v1?label=bash&message=%20&logo=shell&color=grey&link=https://github.com/YINNSTORE/Stress_grab">
+   <img src="https://img.shields.io/static/v1?label=code%20by%20polygon&message=%20&logo=apache">
+</p>
+<p align="center">
+   <img src="https://img.shields.io/static/v1?label=tools&message=graber%20domain&color=blue&logo=jinja&logoColor=red"><br>
+   <code><img src="https://img.shields.io/static/v1?label=made&message=indonesia&color=red"></code>
