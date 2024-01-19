@@ -11,7 +11,7 @@
 <p align="center"><img src="https://img.shields.io/static/v1?style=for-the-badge&logo=centos&label=Centos%208&message=think&color=red"> <img src="https://img.shields.io/static/v1?style=for-the-badge&logo=debian&label=Debian%2010&message=Buster&color=red"></p>
 
 
-<p align="center"><img src="https://img.shields.io/static/v1?style=for-the-badge&logo=ubuntu&label=Ubuntu%2020&message=buster&color=Fuchsia"> <img src="https://img.shields.io/static/v1?style=for-the-badge&logo=redhat&label=Redhat%209&message=enterprise&color=Fuchsia"></p>
+<p align="center"><img src="https://img.shields.io/static/v1?style=for-the-badge&logo=ubuntu&label=Ubuntu%2020&message=buster&color=fuchsia"> <img src="https://img.shields.io/static/v1?style=for-the-badge&logo=redhat&label=Redhat%209&message=enterprise&color=fuchsia"></p>
 
 
 <p align="center"><img src="https://img.shields.io/badge/Service-OpenSSH-success.svg">  <img src="https://img.shields.io/badge/Service-Dropbear-success.svg">  <img src="https://img.shields.io/badge/Service-BadVPN-success.svg">  <img src="https://img.shields.io/badge/Service-Stunnel-success.svg">  <img src="https://img.shields.io/badge/Service-OpenVPN-success.svg">  <img src="https://img.shields.io/badge/Service-Squid3-success.svg">  <img   src="https://img.shields.io/badge/Service-Webmin-success.svg">   <img src="https://img.shields.io/badge/Service-Privoxy-success.svg">  <img src="https://img.shields.io/badge/Service-Xray-success.svg"> 
