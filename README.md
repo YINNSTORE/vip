@@ -1,5 +1,4 @@
-<p align="center">
-<img src="https://readme-typing-svg.herokuapp.com?color=%2336BCF7&center=true&vCenter=true&lines=YINN+VPN+TUNNELING+SERVICE" />
+<p align="center"><img src="https://readme-typing-svg.herokuapp.com?color=%2336BCF7&center=true&vCenter=true&lines=YINN+VPN+TUNNELING+SERVICE" />
 </p>
 <p align='center'><a href="https://api.daily.dev/get?r=fisabiliyusri"><img src="https://raw.githubusercontent.com/fisabiliyusri/.github/main/kotori2.png?r=82s" width="150" alt="Hayuk"/></a></p>
 
@@ -77,9 +76,9 @@ https://wa.me/6283845852328
 <!-- <img src="https://github.com/Bayu12345677/Stress_grab/blob/main/foto/20220206_185236.png" width="200" ="200" --!>
 
 <p>
-   <img src="https://img.shields.io/github/forks/Bayu12345677/Stress_grab?color=cyan&logo=java&logoColor=yellow">
-   <img src="https://img.shields.io/github/stars/Bayu12345677/Stress_grab?color=green&logo=ruby&logoColor=red">
-   <img src="https://img.shields.io/static/v1?label=bash&message=%20&logo=shell&color=grey&link=https://github.com/Bayu12345677/Stress_grab">
+   <img src="https://img.shields.io/github/forks/YINNSTORE/Stress_grab?color=cyan&logo=java&logoColor=yellow">
+   <img src="https://img.shields.io/github/stars/YINNSTORE/Stress_grab?color=green&logo=ruby&logoColor=red">
+   <img src="https://img.shields.io/static/v1?label=bash&message=%20&logo=shell&color=grey&link=https://github.com/YINNSTORE/Stress_grab">
    <img src="https://img.shields.io/static/v1?label=code%20by%20polygon&message=%20&logo=apache">
 </p>
 <p align="center">
