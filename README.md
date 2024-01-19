@@ -82,8 +82,8 @@ https://wa.me/6283845852328
    <img src="https://img.shields.io/static/v1?label=CODEC%20BY%20YINN&message=%20&logo=apache">
 </p>
 <p align="center">
-   <img src="https://img.shields.io/static/v1?label=YINN&message=graber%20AUTOSCRIPT&color=blue&logo=jinja&logoColor=red"><br>
-   <code><img src="https://img.shields.io/static/v1?label=made&message=indonesia&color=red"></code>
+   <img src="https://img.shields.io/static/v1?label=YINN&message=STR%20AUTOSCRIPT&color=blue&logo=jinja&logoColor=red"><br>
+   <code><img src="https://img.shields.io/static/v1?label=MADE&message=INDONESIA&color=red"></code>
 </p>
 <br>
 <p>
