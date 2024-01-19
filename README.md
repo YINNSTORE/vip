@@ -76,9 +76,9 @@ https://wa.me/6283845852328
 <!-- <img src="https://github.com/Bayu12345677/Stress_grab/blob/main/foto/20220206_185236.png" width="200" ="200" --!>
 
 <p>
-   <img src="https://img.shields.io/github/forks/YINNSTORE/Stress_grab?color=cyan&logo=java&logoColor=yellow">
-   <img src="https://img.shields.io/github/stars/YINNSTORE/Stress_grab?color=green&logo=ruby&logoColor=red">
-   <img src="https://img.shields.io/static/v1?label=bash&message=%20&logo=shell&color=grey&link=https://github.com/YINNSTORE/Stress_grab">
+   <img src="https://img.shields.io/github/forks/YINNSTORE/vip?color=cyan&logo=java&logoColor=yellow">
+   <img src="https://img.shields.io/github/stars/YINNSTORE/vip?color=green&logo=ruby&logoColor=red">
+   <img src="https://img.shields.io/static/v1?label=bash&message=%20&logo=shell&color=grey&link=https://github.com/YINNSTORE/vip">
    <img src="https://img.shields.io/static/v1?label=code%20by%20polygon&message=%20&logo=apache">
 </p>
 <p align="center">
