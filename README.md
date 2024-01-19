@@ -73,16 +73,16 @@ https://wa.me/6283845852328
 
 ### INFO AUTOSCRIPT
 ```
-<!-- <img src="https://github.com/Bayu12345677/Stress_grab/blob/main/foto/20220206_185236.png" width="200" ="200" --!>
+<!-- <img src="https://github.com/YINNSTORE/STRESS_vip/blob/main/foto/20220206_185236.png" width="200" ="200" --!>
 
 <p>
    <img src="https://img.shields.io/github/forks/YINNSTORE/vip?color=cyan&logo=java&logoColor=yellow">
    <img src="https://img.shields.io/github/stars/YINNSTORE/vip?color=green&logo=ruby&logoColor=red">
    <img src="https://img.shields.io/static/v1?label=bash&message=%20&logo=shell&color=grey&link=https://github.com/YINNSTORE/vip">
-   <img src="https://img.shields.io/static/v1?label=code%20by%20polygon&message=%20&logo=apache">
+   <img src="https://img.shields.io/static/v1?label=CODEC%20BY%20YINN&message=%20&logo=apache">
 </p>
 <p align="center">
-   <img src="https://img.shields.io/static/v1?label=tools&message=graber%20domain&color=blue&logo=jinja&logoColor=red"><br>
+   <img src="https://img.shields.io/static/v1?label=YINN&message=graber%20AUTOSCRIPT&color=blue&logo=jinja&logoColor=red"><br>
    <code><img src="https://img.shields.io/static/v1?label=made&message=indonesia&color=red"></code>
 </p>
 <br>
