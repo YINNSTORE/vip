@@ -21,11 +21,6 @@
 
 
 
-### INSTALL UDP-CUSTOM MANUAL
-<pre><code>wget https://raw.githubusercontent.com/YINNSTORE/vip/main/udp-custom.sh && chmod +x udp-custom.sh && ./udp-custom.sh</code></pre>
-
-
-
 ### UPDATE TERLEBIH DAHULU
 <pre><code>apt update && apt upgrade -y</code></pre>
 
@@ -35,6 +30,11 @@
 
 ### UPDATE SCRIPT
 <pre><code>wget https://raw.githubusercontent.com/YINNSTORE/vip/main/update.sh && chmod +x update.sh && ./update.sh</code></pre>
+
+
+### INSTALL UDP-CUSTOM MANUAL
+<pre><code>wget https://raw.githubusercontent.com/YINNSTORE/vip/main/udp-custom.sh && chmod +x udp-custom.sh && ./udp-custom.sh</code></pre>
+
 
 
 ### WAJIB IZIN IP CONTACT ADMIN ©YINN STORE
