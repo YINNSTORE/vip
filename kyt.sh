@@ -9,17 +9,17 @@ NC='\e[0m'
 apt update && apt upgrade
 apt install python3 python3-pip git
 cd /usr/bin
-wget https://raw.githubusercontent.com/BurhanLovers/vip/main/limit/bot.zip
+wget https://raw.githubusercontent.com/YINNSTORE/vip/main/limit/bot.zip
 unzip bot.zip
 mv bot/* /usr/bin
 chmod +x /usr/bin/*
 rm -rf bot.zip
 clear
-wget https://raw.githubusercontent.com/BurhanLovers/vip/main/limit/kyt.zip
+wget https://raw.githubusercontent.com/YINNSTORE/vip/main/limit/kyt.zip
 unzip kyt.zip
 pip3 install -r kyt/requirements.txt
 
-#isi data
+clear
 echo ""
 echo -e "\033[1;36m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
 echo -e " \e[1;97;101m          ADD BOT PANEL          \e[0m"
@@ -29,7 +29,7 @@ echo -e "${grenbo}[*] Creat Bot and Token Bot : @BotFather${NC}"
 echo -e "${grenbo}[*] Info Id Telegram : @MissRose_bot , perintah /info${NC}"
 echo -e "\033[1;36m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
 read -e -p "[*] Input your Bot Token : " bottoken
-read -e -p "[*] Input Your Id Telegram :" admin
+read -e -p "[*] Input Your Id Telegram : " admin
 echo -e BOT_TOKEN='"'$bottoken'"' >> /usr/bin/kyt/var.txt
 echo -e ADMIN='"'$admin'"' >> /usr/bin/kyt/var.txt
 echo -e DOMAIN='"'$domain'"' >> /usr/bin/kyt/var.txt
@@ -66,6 +66,7 @@ echo "Pub            : $PUB"
 echo "Host           : $NS"
 echo -e "==============================="
 echo "Setting done"
+sleep 2
 clear
 
 echo " Installations complete, type /menu on your bot"
