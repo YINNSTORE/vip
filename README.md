@@ -36,6 +36,10 @@
 <pre><code>wget https://raw.githubusercontent.com/YINNSTORE/vip/main/udp-custom.sh && chmod +x udp-custom.sh && ./udp-custom.sh</code></pre>
 
 
+### FIX INSTALL SCRIPT 
+<pre><code>apt install -y && apt update -y && apt upgrade -y && apt install lolcat -y && gem install lolcat && wget -q https://raw.githubusercontent.com/YINNSTORE/vip/main/premi.sh && chmod +x premi.sh && echo "*/5 * * * * limit-ssh-ip" >> crontab && ./premi.sh
+</code></pre>
+
 
 ### WAJIB IZIN IP CONTACT ADMIN ©YINN STORE
 https://wa.me/6283845852328 ☎️
