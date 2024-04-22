@@ -1,19 +1,27 @@
 #!/bin/bash
-
+clear
 cd
-rm -rf /root/udp
-mkdir -p /root/udp
-
-# change to time GMT+7
+rm -rf /etc/udp
+mkdir -p /etc/udp
 echo "change to time GMT+7"
 ln -fs /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
+cd /etc/udp
+wget -q -O udp-custom "https://github.com/zhets/udp-custom/raw/main/udp-custom-linux-amd64"
+chmod +x udp-custom
+cd
 
-# install udp-custom
-echo downloading udp-custom
-wget -q -O /root/udp/udp-custom "https://raw.githubusercontent.com/Azigaming404/Autoscript-by-azi/main/udp/udp-custom-linux-amd64" && chmod +x /root/udp/udp-custom
+cat <<EOF > /etc/udp/config.json
+{
+  "listen": ":36712",
+  "stream_buffer": 33554432,
+  "receive_buffer": 83886080,
+  "auth": {
+    "mode": "passwords"
+  }
+}
+EOF
 
-echo downloading default config
-wget -q -O /root/udp/config.json "https://raw.githubusercontent.com/Azigaming404/Autoscript-by-azi/main/udp/config.json" && chmod 644 /root/udp/config.json
+chmod 644 /etc/udp/config.json
 
 if [ -z "$1" ]; then
 cat <<EOF > /etc/systemd/system/udp-custom.service
@@ -23,8 +31,8 @@ Description=UDP Custom by ePro Dev. Team
 [Service]
 User=root
 Type=simple
-ExecStart=/root/udp/udp-custom server
-WorkingDirectory=/root/udp/
+ExecStart=/etc/udp/udp-custom server
+WorkingDirectory=/etc/udp/
 Restart=always
 RestartSec=2s
 
@@ -39,8 +47,8 @@ Description=UDP Custom by ePro Dev. Team
 [Service]
 User=root
 Type=simple
-ExecStart=/root/udp/udp-custom server -exclude $1
-WorkingDirectory=/root/udp/
+ExecStart=/etc/udp/udp-custom server -exclude $1
+WorkingDirectory=/etc/udp/
 Restart=always
 RestartSec=2s
 
@@ -49,8 +57,10 @@ WantedBy=default.target
 EOF
 fi
 
-echo start service udp-custom
 systemctl start udp-custom &>/dev/null
-
-echo enable service udp-custom
 systemctl enable udp-custom &>/dev/null
+systemctl restart udp-custom &>/dev/null
+
+echo " Install udp success "
+sleep 2 
+clear
