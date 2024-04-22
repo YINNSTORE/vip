@@ -1,21 +1,27 @@
 #!/bin/bash
-
+clear
 cd
-rm -rf /root/udp
-mkdir -p /root/udp
-
-# change to time GMT+7
+rm -rf /etc/udp
+mkdir -p /etc/udp
 echo "change to time GMT+7"
 ln -fs /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
+cd /etc/udp
+wget -q -O udp-custom "https://github.com/zhets/udp-custom/raw/main/udp-custom-linux-amd64"
+chmod +x udp-custom
+cd
 
-# install udp-custom
-echo downloading udp-custom
-wget -q --show-progress --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate 'https://docs.google.com/uc?export=download&id=1Xt20YlbGw4o9ItuMokmg621TvB5e9GQ6' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')&id=1Xt20YlbGw4o9ItuMokmg621TvB5e9GQ6" -O /root/udp/udp-custom && rm -rf /tmp/cookies.txt
-chmod +x /root/udp/udp-custom
+cat <<EOF > /etc/udp/config.json
+{
+  "listen": ":36712",
+  "stream_buffer": 33554432,
+  "receive_buffer": 83886080,
+  "auth": {
+    "mode": "passwords"
+  }
+}
+EOF
 
-echo downloading default config
-wget -q --show-progress --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate 'https://docs.google.com/uc?export=download&id=1aY8Ufue6Vv9YF_xUtWLdFesA1ZOKxo1u' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')&id=1aY8Ufue6Vv9YF_xUtWLdFesA1ZOKxo1u" -O /root/udp/config.json && rm -rf /tmp/cookies.txt
-chmod 644 /root/udp/config.json
+chmod 644 /etc/udp/config.json
 
 if [ -z "$1" ]; then
 cat <<EOF > /etc/systemd/system/udp-custom.service
@@ -25,8 +31,8 @@ Description=UDP Custom by ePro Dev. Team
 [Service]
 User=root
 Type=simple
-ExecStart=/root/udp/udp-custom server
-WorkingDirectory=/root/udp/
+ExecStart=/etc/udp/udp-custom server
+WorkingDirectory=/etc/udp/
 Restart=always
 RestartSec=2s
 
@@ -41,8 +47,8 @@ Description=UDP Custom by ePro Dev. Team
 [Service]
 User=root
 Type=simple
-ExecStart=/root/udp/udp-custom server -exclude $1
-WorkingDirectory=/root/udp/
+ExecStart=/etc/udp/udp-custom server -exclude $1
+WorkingDirectory=/etc/udp/
 Restart=always
 RestartSec=2s
 
@@ -51,15 +57,10 @@ WantedBy=default.target
 EOF
 fi
 
-echo start service udp-custom
 systemctl start udp-custom &>/dev/null
-
-echo enable service udp-custom
 systemctl enable udp-custom &>/dev/null
+systemctl restart udp-custom &>/dev/null
 
-#echo reboot
-#reboot
+echo " Install udp success "
+sleep 2 
 clear
-echo -e ""
-read -p "Enter To Menu"
-menu
