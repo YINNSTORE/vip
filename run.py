@@ -69,7 +69,7 @@ bot = Client("encrypt_decrypt_bot", api_id=API_ID, api_hash=API_HASH, bot_token=
 
 last_sent_file = None
 
-@bot.on_message(filters.command("start"))
+@bot.on_message(filters.command("/start"))
 async def start(client, message):
     await message.reply_text("🔐 *Bot Enkripsi & Dekripsi*\n\n"
                              "Kirim file untuk dienkripsi atau didekripsi.\n"
