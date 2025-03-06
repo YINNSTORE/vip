@@ -13,12 +13,6 @@ TELEGRAM_BOT_TOKEN="7667938486:AAGf1jtnAj__TwNUQhm7nzzncFyD0zw92vg"
 TELEGRAM_CHAT_ID="6353421952"
 
 clear
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🧿 Digital Ocean VPS Rebuild 🧿"
-echo "🔹 Powered by Yinn Store     🔹"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-
 
 while true; do
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
