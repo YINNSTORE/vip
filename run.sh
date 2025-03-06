@@ -19,29 +19,6 @@ echo "🔹 Powered by Yinn Store     🔹"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-# Cek apakah izin.sh ada
-if [[ ! -f "./izin.sh" ]]; then
-    echo "❌ ERROR: izin.sh gak ditemukan!"
-    exit 1
-fi
-
-# Pastikan izin.sh bisa dieksekusi
-if [[ ! -x "./izin.sh" ]]; then
-    chmod +x ./izin.sh
-fi
-
-# Cek API Key
-read -p "🔑 Masukkan API Key: " user_token
-IZIN_RESULT=$(./izin.sh "$user_token")
-
-if [[ "$IZIN_RESULT" != "ALLOW" ]]; then
-    echo "❌ Akses ditolak! API Key salah atau gak valid."
-    exit 1
-fi
-
-echo "✅ API Key valid! Lanjut ke menu utama..."
-sleep 1
-clear
 
 while true; do
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
