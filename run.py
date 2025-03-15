@@ -1,145 +1,151 @@
-import os
-import subprocess
-from pyrogram import Client, filters
+import logging
+from datetime import datetime
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters, CallbackContext
 
-# Ganti dengan API ID, API HASH, dan BOT TOKEN dari @BotFather
-API_ID = "6353421952"
-API_HASH = "YOUR_API_HASH"
-BOT_TOKEN = "7667938486:AAGf1jtnAj__TwNUQhm7nzzncFyD0zw92vg"
+# Logging untuk debugging
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-if not os.path.exists("downloads"):
-    os.makedirs("downloads")
+# Ganti dengan token bot dari @BotFather
+TOKEN = "7667938486:AAGf1jtnAj__TwNUQhm7nzzncFyD0zw92vg"
 
-def detect_encryption(file_path):
-    if file_path.endswith(".sh.x"):
-        return "BashArmor"
-    elif file_path.endswith(".bz2"):
-        return "BZip2"
-    elif file_path.endswith(".shc"):
-        return "SHC"
-    elif file_path.endswith(".basrock"):
-        return "Basrock"
-    else:
-        return "Unknown"
+# ID Telegram admin (ganti dengan ID admin)
+ADMIN_ID = 6353421952  
 
-def encrypt_file(file_path, method):
-    output_file = file_path
-    if method == "SHC":
-        output_file = file_path + ".shc"
-        subprocess.run(["shc", "-f", file_path, "-o", output_file])
-    elif method == "BZip2":
-        subprocess.run(["bzip2", file_path])
-        output_file = file_path + ".bz2"
-    elif method == "BashArmor":
-        output_file = file_path + ".sh.x"
-        subprocess.run(["basharmor", file_path, "-o", output_file])
-    elif method == "Basrock":
-        output_file = file_path + ".basrock"
-        subprocess.run(["basrock", "encrypt", "-i", file_path, "-o", output_file])
-    return output_file
+# Daftar ID user yang diperbolehkan mengakses bot (WHITELIST)
+WHITELIST_USERS = {123456789: "ATMIN", 6353421952: "User2"}  # Format: {user_id: "nama"}
 
-def decrypt_file(file_path, method):
-    output_file = file_path.replace(".sh.x", "").replace(".bz2", "").replace(".shc", "").replace(".basrock", "")
-    if method == "BZip2":
-        subprocess.run(["bzip2", "-d", file_path])
-        output_file = file_path[:-4]
-    elif method == "Basrock":
-        subprocess.run(["basrock", "decrypt", "-i", file_path, "-o", output_file])
-    return output_file
+# Data sementara untuk input admin
+user_data = {}
 
-def install_dependencies():
-    dependencies = ["shc", "bzip2", "basharmor", "basrock"]
+# Fungsi untuk mengecek akses user
+def check_access(update: Update) -> bool:
+    user_id = update.message.chat_id
+    if user_id not in WHITELIST_USERS:
+        update.message.reply_text("❌ Akses Ditolak! ID Anda tidak terdaftar.")
+        return False
+    return True
 
-    # Check for package installation and install if not present
-    for dep in dependencies:
-        try:
-            print(f"⏳ Checking if {dep} is installed...")
-            result = subprocess.run(["dpkg", "-s", dep], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            if result.returncode != 0:
-                print(f"{dep} not found. Installing {dep}...")
-                subprocess.run(["sudo", "apt-get", "update", "-y"])
-                subprocess.run(["sudo", "apt-get", "install", "-y", dep])
-                print(f"✅ {dep} installed successfully!")
-            else:
-                print(f"✅ {dep} is already installed.")
-        except Exception as e:
-            print(f"❌ Error installing {dep}: {str(e)}")
+# Fungsi menu utama
+def menu(update: Update, context: CallbackContext) -> None:
+    if not check_access(update):
+        return
+    
+    keyboard = [
+        [InlineKeyboardButton("🛒 Beli Paket", callback_data="MENU_BELI_PAKET")],
+        [InlineKeyboardButton("📞 Contact Admin", callback_data="MENU_CONTACT_ADMIN")],
+    ]
+    
+    # Jika user adalah admin, tambahkan tombol Setting
+    if update.message.chat_id == ADMIN_ID:
+        keyboard.append([InlineKeyboardButton("⚙️ Setting", callback_data="MENU_SETTING")])
+    
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    update.message.reply_text("🔵 **Menu Utama** 🔵\nSilakan pilih menu:", parse_mode="Markdown", reply_markup=reply_markup)
 
-bot = Client("encrypt_decrypt_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+# Fungsi menu Setting (khusus admin)
+def menu_setting(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    chat_id = query.message.chat_id
 
-last_sent_file = None
-
-@bot.on_message(filters.command("/start"))
-async def start(client, message):
-    await message.reply_text("🔐 *Bot Enkripsi & Dekripsi*\n\n"
-                             "Kirim file untuk dienkripsi atau didekripsi.\n"
-                             "Gunakan /encrypt <metode> atau /decrypt.")
-
-@bot.on_message(filters.document | filters.video | filters.audio | filters.photo)
-async def handle_file(client, message):
-    global last_sent_file
-    file_path = f"downloads/{message.document.file_name if message.document else 'image.jpg'}"
-    await message.reply_text("📥 Mengunduh file...")
-    await bot.download_media(message, file_path)
-    last_sent_file = file_path
-    await message.reply_text(f"✅ File berhasil diunduh: {file_path}\n"
-                             "Gunakan /encrypt atau /decrypt untuk memproses file.")
-
-@bot.on_message(filters.command("encrypt"))
-async def encrypt(client, message):
-    global last_sent_file
-    if not last_sent_file:
-        await message.reply_text("❌ Tidak ada file yang diupload. Kirimkan file terlebih dahulu!")
+    if chat_id != ADMIN_ID:
+        query.message.reply_text("❌ Akses Ditolak! Hanya admin yang bisa mengakses menu ini.")
         return
 
-    method = message.text.split()[1] if len(message.text.split()) > 1 else None
-    if not method:
-        await message.reply_text("❌ Gunakan format: `/encrypt <SHC|BZip2|BashArmor|Basrock>`", parse_mode="markdown")
+    keyboard = [[InlineKeyboardButton("➕ Add Member", callback_data="ADD_MEMBER")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    query.message.reply_text("⚙️ **Menu Setting** ⚙️\nPilih opsi di bawah:", parse_mode="Markdown", reply_markup=reply_markup)
+
+# Fungsi untuk menambahkan user ke whitelist
+def add_member(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    chat_id = query.message.chat_id
+
+    if chat_id != ADMIN_ID:
+        query.message.reply_text("❌ Akses Ditolak! Hanya admin yang bisa menambah member.")
         return
 
-    if method not in ["SHC", "BZip2", "BashArmor", "Basrock"]:
-        await message.reply_text("❌ Pilihan enkripsi tidak valid! Pilih: SHC, BZip2, BashArmor, atau Basrock.")
-        return
+    query.message.reply_text("✏️ **Masukkan ID member:**", parse_mode="Markdown")
 
-    encrypted_file = encrypt_file(last_sent_file, method)
-    await message.reply_text(f"🔐 File berhasil dienkripsi menggunakan {method}. Mengirim file terenkripsi...")
-    await bot.send_document(message.chat.id, encrypted_file, caption=f"✅ File terenkripsi dengan {method}")
-    os.remove(encrypted_file)
+    # Simpan status bahwa admin sedang input ID
+    user_data[chat_id] = {"step": "waiting_for_id"}
 
-@bot.on_message(filters.command("decrypt"))
-async def decrypt(client, message):
-    global last_sent_file
-    if not last_sent_file:
-        await message.reply_text("❌ Tidak ada file yang diupload. Kirimkan file terlebih dahulu!")
-        return
+# Fungsi menangani input dari admin
+def handle_admin_input(update: Update, context: CallbackContext) -> None:
+    chat_id = update.message.chat_id
+    text = update.message.text
 
-    encryption_method = detect_encryption(last_sent_file)
-    if encryption_method == "Unknown":
-        await message.reply_text("❌ Jenis enkripsi file tidak dikenali!")
-        return
+    if chat_id == ADMIN_ID:
+        step = user_data.get(chat_id, {}).get("step")
 
-    decrypted_file = decrypt_file(last_sent_file, encryption_method)
-    await message.reply_text(f"🔓 File berhasil didekripsi menggunakan {encryption_method}. Mengirim file terdekripsi...")
-    await bot.send_document(message.chat.id, decrypted_file, caption="✅ File terdekripsi!")
-    os.remove(decrypted_file)
+        if step == "waiting_for_id":
+            try:
+                new_user_id = int(text)
+                if new_user_id in WHITELIST_USERS:
+                    update.message.reply_text(f"⚠️ User dengan ID `{new_user_id}` sudah ada di whitelist.", parse_mode="Markdown")
+                    return
+                
+                # Simpan ID sementara dan minta nama
+                user_data[chat_id]["new_user_id"] = new_user_id
+                user_data[chat_id]["step"] = "waiting_for_name"
+                update.message.reply_text("📝 **Masukkan Nama Member:**", parse_mode="Markdown")
 
-@bot.on_message(filters.command("execute"))
-async def execute(client, message):
-    global last_sent_file
-    if not last_sent_file:
-        await message.reply_text("❌ Tidak ada file yang dieksekusi. Kirimkan file terlebih dahulu!")
-        return
+            except ValueError:
+                update.message.reply_text("❌ Format ID tidak valid! Masukkan angka saja.")
 
-    file_path = last_sent_file
-    os.chmod(file_path, 0o755)
+        elif step == "waiting_for_name":
+            new_user_id = user_data[chat_id].get("new_user_id")
 
-    try:
-        result = subprocess.run(file_path, shell=True, capture_output=True, text=True)
-        output = result.stdout if result.stdout else result.stderr
-        await message.reply_text(f"🖥️ Output eksekusi:\n\n```\n{output}\n```", parse_mode="markdown")
-    except Exception as e:
-        await message.reply_text(f"❌ Gagal mengeksekusi file!\nError: {str(e)}")
+            if new_user_id:
+                WHITELIST_USERS[new_user_id] = text
+
+                tanggal = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                response = f"""
+━━━━━━━━━━━━━━━━━━━━
+🧿 SUKSES ADD MEMBER 🧿
+━━━━━━━━━━━━━━━━━━━━
+NAMA : {text}
+ID TELE : {new_user_id}
+TANGGAL : {tanggal}
+STATUS : ✅ BERHASIL
+@yinnprovpn
+━━━━━━━━━━━━━━━━━━━━
+"""
+                update.message.reply_text(response, parse_mode="Markdown")
+
+                # Hapus status input
+                user_data.pop(chat_id, None)
+
+# Menangani callback query
+def menu_callback(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    data = query.data
+
+    if data == "MENU_BELI_PAKET":
+        query.message.reply_text("Masukkan nomor HP tujuan:")
+    elif data == "MENU_CONTACT_ADMIN":
+        query.message.reply_text(f"📞 **Hubungi Admin:** [Klik di sini](tg://user?id={ADMIN_ID})", parse_mode="Markdown")
+    elif data == "MENU_SETTING":
+        menu_setting(update, context)
+    elif data == "ADD_MEMBER":
+        add_member(update, context)
+
+# Main function
+def main():
+    updater = Updater(TOKEN, use_context=True)
+    dp = updater.dispatcher
+
+    dp.add_handler(CommandHandler("start", menu))
+    dp.add_handler(CommandHandler("menu", menu))
+    dp.add_handler(CallbackQueryHandler(menu_callback, pattern="^MENU_"))
+    dp.add_handler(CallbackQueryHandler(menu_callback, pattern="^ADD_MEMBER"))
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_admin_input))
+
+    updater.start_polling()
+    print("✅ Bot berjalan dengan sukses!")
+    updater.idle()
 
 if __name__ == "__main__":
-    install_dependencies()  # Install dependencies before starting bot
-    bot.run()
+    main()
+    
