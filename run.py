@@ -1,133 +1,158 @@
 import os
-import subprocess
+import yaml
+import base64
+import json
+from datetime import datetime
 from pyrogram import Client, filters
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, BotCommand
 
-# Ganti dengan API ID, API HASH, dan BOT TOKEN dari @BotFather
-API_ID = 6353421952  # Harus angka, jangan string
-API_HASH = "YOUR_API_HASH"
+# Konfigurasi Bot Telegram
+API_ID = 21635979  # Ganti dengan API ID Telegram
+API_HASH = "cbc12884284bc3457360ca9b9d37b94e"
 BOT_TOKEN = "7667938486:AAGf1jtnAj__TwNUQhm7nzzncFyD0zw92vg"
 
-if not os.path.exists("downloads"):
-    os.makedirs("downloads")
+app = Client("stb_inject_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
-# Menyimpan file per pengguna
-user_data = {}
+# Daftar Admin (ID Telegram)
+ADMIN_IDS = [6353421952]  # Ganti dengan ID Telegram admin
 
-def detect_encryption(file_path):
-    if file_path.endswith(".sh.x"):
-        return "BashArmor"
-    elif file_path.endswith(".bz2"):
-        return "BZip2"
-    elif file_path.endswith(".shc"):
-        return "SHC"
-    elif file_path.endswith(".basrock"):
-        return "Basrock"
-    else:
-        return "Unknown"
+# 🔘 Menu Utama dengan Banner & Contact Admin
+@app.on_message(filters.command(["start", "stb"]))
+def start(client, message):
+    user_id = message.from_user.id
+    first_name = message.from_user.first_name
 
-def encrypt_file(file_path, method):
-    output_file = file_path
-    if method == "SHC":
-        output_file = file_path + ".shc"
-        subprocess.run(["shc", "-f", file_path, "-o", output_file])
-    elif method == "BZip2":
-        subprocess.run(["bzip2", file_path])
-        output_file = file_path + ".bz2"
-    elif method == "BashArmor":
-        output_file = file_path + ".sh.x"
-        subprocess.run(["basharmor", file_path, "-o", output_file])
-    elif method == "Basrock":
-        output_file = file_path + ".basrock"
-        subprocess.run(["basrock", "encrypt", "-i", file_path, "-o", output_file])
-    return output_file
+    # Tentukan status pengguna
+    status = "PREMIUM" if user_id in ADMIN_IDS else "FREE"
 
-def decrypt_file(file_path, method):
-    output_file = file_path.replace(".sh.x", "").replace(".bz2", "").replace(".shc", "").replace(".basrock", "")
-    if method == "BZip2":
-        subprocess.run(["bzip2", "-d", file_path])
-        output_file = file_path[:-4]
-    elif method == "Basrock":
-        subprocess.run(["basrock", "decrypt", "-i", file_path, "-o", output_file])
-    return output_file
+    banner = f"""━━━━━━━━━━━━━━━━━━━━━━━
+🧿 **BOT PANEL CREATE CONFIG** 🧿
+━━━━━━━━━━━━━━━━━━━━━━━
+**USER:** {first_name}
+**STATUS:** {status}
+**CONTACT ADMIN:** @yinnprovpn
+━━━━━━━━━━━━━━━━━━━━━━━
+🛠 Kirimkan link akun (VMess/VLESS/Trojan) untuk membuat config OpenWRT.
+📌 Contoh:
+`vmess://...`
+━━━━━━━━━━━━━━━━━━━━━━━"""
 
-bot = Client("encrypt_decrypt_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("⚡ Buat Config STB", callback_data="generate_config")],
+        [InlineKeyboardButton("📞 Contact Admin", url="https://t.me/yinnprovpn")]
+    ])
 
-@bot.on_message(filters.command("start"))
-async def start(client, message):
-    await message.reply_text("🔐 *Bot Enkripsi & Dekripsi*\n\n"
-                             "Kirim file untuk dienkripsi atau didekripsi.\n"
-                             "Gunakan /encrypt <metode> atau /decrypt.")
+    message.reply(banner, reply_markup=keyboard, parse_mode="Markdown")
 
-@bot.on_message(filters.document | filters.video | filters.audio | filters.photo)
-async def handle_file(client, message):
-    chat_id = message.chat.id
-    file_name = message.document.file_name if message.document else "file_unknown"
-    file_path = f"downloads/{chat_id}_{file_name}"
-
-    await message.reply_text("📥 Mengunduh file...")
-    await bot.download_media(message, file_path)
-
-    user_data[chat_id] = file_path
-    await message.reply_text(f"✅ File berhasil diunduh: {file_name}\n"
-                             "Gunakan /encrypt atau /decrypt untuk memproses file.")
-
-@bot.on_message(filters.command("encrypt"))
-async def encrypt(client, message):
-    chat_id = message.chat.id
-    if chat_id not in user_data:
-        await message.reply_text("❌ Tidak ada file yang diupload. Kirimkan file terlebih dahulu!")
-        return
-
-    method = message.text.split()[1] if len(message.text.split()) > 1 else None
-    if not method or method not in ["SHC", "BZip2", "BashArmor", "Basrock"]:
-        await message.reply_text("❌ Gunakan format: `/encrypt <SHC|BZip2|BashArmor|Basrock>`", parse_mode="markdown")
-        return
-
-    file_path = user_data[chat_id]
-    encrypted_file = encrypt_file(file_path, method)
-    
-    await message.reply_text(f"🔐 File berhasil dienkripsi menggunakan {method}. Mengirim file terenkripsi...")
-    await bot.send_document(chat_id, encrypted_file, caption=f"✅ File terenkripsi dengan {method}")
-    
-    os.remove(encrypted_file)
-
-@bot.on_message(filters.command("decrypt"))
-async def decrypt(client, message):
-    chat_id = message.chat.id
-    if chat_id not in user_data:
-        await message.reply_text("❌ Tidak ada file yang diupload. Kirimkan file terlebih dahulu!")
-        return
-
-    file_path = user_data[chat_id]
-    encryption_method = detect_encryption(file_path)
-    
-    if encryption_method == "Unknown":
-        await message.reply_text("❌ Jenis enkripsi file tidak dikenali!")
-        return
-
-    decrypted_file = decrypt_file(file_path, encryption_method)
-    
-    await message.reply_text(f"🔓 File berhasil didekripsi menggunakan {encryption_method}. Mengirim file terdekripsi...")
-    await bot.send_document(chat_id, decrypted_file, caption="✅ File terdekripsi!")
-    
-    os.remove(decrypted_file)
-
-@bot.on_message(filters.command("execute"))
-async def execute(client, message):
-    chat_id = message.chat.id
-    if chat_id not in user_data:
-        await message.reply_text("❌ Tidak ada file yang dieksekusi. Kirimkan file terlebih dahulu!")
-        return
-
-    file_path = os.path.abspath(user_data[chat_id])
-    os.chmod(file_path, 0o755)
-
+# 📥 Terima Link Akun & Generate Config
+@app.on_message(filters.text)
+def generate_stb_config(client, message):
     try:
-        result = subprocess.run(file_path, shell=True, capture_output=True, text=True)
-        output = result.stdout if result.stdout else result.stderr
-        await message.reply_text(f"🖥️ Output eksekusi:\n\n```\n{output}\n```", parse_mode="markdown")
-    except Exception as e:
-        await message.reply_text(f"❌ Gagal mengeksekusi file!\nError: {str(e)}")
+        akun_link = message.text.strip()
 
+        # Cek format akun
+        if akun_link.startswith("vmess://"):
+            akun_type = "VMess"
+            decoded_data = base64.b64decode(akun_link[8:]).decode("utf-8")
+            data = json.loads(decoded_data)
+        elif akun_link.startswith("vless://"):
+            akun_type = "VLESS"
+            data = parse_vless(akun_link)
+        elif akun_link.startswith("trojan://"):
+            akun_type = "Trojan"
+            data = parse_trojan(akun_link)
+        else:
+            message.reply("❌ Format akun tidak valid! Kirimkan link yang benar (VMess/VLESS/Trojan).")
+            return
+
+        # 🔥 Generate Config .yaml
+        stb_config = {
+            "proxies": [
+                {
+                    "name": f"{akun_type}-STB-WS TLS",
+                    "type": akun_type.lower(),
+                    "server": data["server"],
+                    "port": data["port"],
+                    "uuid": data.get("id", data.get("uuid", "")),
+                    "alterId": data.get("aid", 0),
+                    "cipher": "auto" if akun_type.lower() == "vmess" else "none",
+                    "udp": True,
+                    "tls": data.get("tls", True),
+                    "skip-cert-verify": True,
+                    "servername": data.get("host", data.get("sni", "")),
+                    "network": "ws",
+                    "ws-opts": {
+                        "path": data.get("path", "/vmess"),
+                        "headers": {
+                            "Host": data.get("host", data.get("sni", ""))
+                        }
+                    }
+                }
+            ]
+        }
+
+        yaml_file = f"/tmp/stb_config_{message.from_user.id}.yaml"
+        with open(yaml_file, "w") as f:
+            yaml.dump(stb_config, f, default_flow_style=False)
+
+        # 🔥 Kirim Config ke User
+        message.reply_document(yaml_file, caption="✅ Config STB OpenWRT berhasil dibuat!")
+        os.remove(yaml_file)
+
+        # 🔥 Kirim Pesan Sukses
+        tanggal_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        pesan_sukses = f"""━━━━━━━━━━━━━━━━━━━━
+🧿 **SUCCESS CREATE CONFIG** 🧿
+━━━━━━━━━━━━━━━━━━━━
+**STATUS:** ✅
+**TIPE:** {akun_type}
+**TANGGAL:** {tanggal_sekarang}
+**CONTACT ADMIN:** @yinnprovpn
+━━━━━━━━━━━━━━━━━━━━"""
+        message.reply(pesan_sukses, parse_mode="Markdown")
+
+    except Exception as e:
+        message.reply(f"❌ Error saat membuat config: {e}")
+
+# 🔍 Parsing VLESS
+def parse_vless(link):
+    parts = link[8:].split("@")
+    user_info, server_info = parts[0], parts[1].split("?")[0]
+    user_id, host = user_info, server_info.split(":")[0]
+    port = server_info.split(":")[1]
+
+    return {
+        "server": host,
+        "port": port,
+        "uuid": user_id,
+        "tls": True,
+        "sni": host,
+        "path": "/",
+        "network": "ws"
+    }
+
+# 🔍 Parsing Trojan
+def parse_trojan(link):
+    parts = link[9:].split("@")
+    user_info, server_info = parts[0], parts[1].split("?")[0]
+    password, host = user_info, server_info.split(":")[0]
+    port = server_info.split(":")[1]
+
+    return {
+        "server": host,
+        "port": port,
+        "password": password,
+        "tls": True,
+        "sni": host,
+        "network": "ws"
+    }
+
+# 🚀 Set Perintah Bot
+app.add_handler(filters.command("start")(start))
+app.add_handler(filters.command("stb")(start))
+app.add_handler(filters.text)(generate_stb_config)
+
+# Jalankan Bot
 if __name__ == "__main__":
-    bot.run()
+    print("Bot Connected ✅")
+    app.run()
