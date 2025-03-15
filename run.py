@@ -1,19 +1,21 @@
 import logging
+import asyncio
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
-# Logging
+# Logging untuk debugging
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 
 # Token bot
 TOKEN = "7667938486:AAGf1jtnAj__TwNUQhm7nzzncFyD0zw92vg"
+
 # ID admin
 ADMIN_ID = 6353421952  
 
 # Data user
-WHITELIST_USERS = {ADMIN_ID: "ADMIN"}
-USER_BALANCE = {ADMIN_ID: 100000}  # Admin saldo awal 100000
+WHITELIST_USERS = {123456789: "ATMIN", 6353421952: "User2"}  # Format: {user_id: "nama"}
+USER_BALANCE = {123456789: 5000, 6353421952: 10000}  # Saldo masing-masing user
 user_data = {}
 
 # Fungsi cek akses
@@ -52,6 +54,34 @@ CONTACTS ADMIN @yinnprovpn
 
     await update.message.reply_text(message, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
 
+# Beli paket
+async def beli_paket(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    chat_id = query.message.chat_id
+
+    await query.message.reply_text("📌 Masukkan nomor HP tujuan:")
+    user_data[chat_id] = {"step": "waiting_for_number"}
+
+    # Set timeout
+    await asyncio.sleep(60)
+    if user_data.get(chat_id, {}).get("step") == "waiting_for_number":
+        await query.message.reply_text("⏳ **Sesi habis! Operasi dibatalkan.**", parse_mode="Markdown")
+        user_data.pop(chat_id, None)
+
+# Pilih paket setelah input nomor HP
+async def handle_number_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat_id = update.message.chat_id
+    text = update.message.text
+
+    if user_data.get(chat_id, {}).get("step") == "waiting_for_number":
+        user_data[chat_id] = {"phone": text, "step": "waiting_for_package"}
+
+        keyboard = [
+            [InlineKeyboardButton("📡 Xtra Unlimited Super", callback_data="PAKET_XTRA")],
+            [InlineKeyboardButton("🎥 Unlimited Vidio", callback_data="PAKET_VIDIO")],
+        ]
+        await update.message.reply_text("📦 **Pilih paket:**", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
+
 # Setting Admin
 async def menu_setting(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
@@ -66,7 +96,7 @@ async def menu_setting(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     ]
     await query.message.reply_text("⚙️ **Menu Setting** ⚙️\nPilih opsi di bawah:", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
 
-# Proses Add Member
+# Add Member
 async def add_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     chat_id = query.message.chat_id
@@ -115,16 +145,26 @@ STATUS : ✅ BERHASIL
         await update.message.reply_text(response, parse_mode="Markdown")
         user_data.pop(chat_id, None)
 
-# Handler bot
+# Cek member
+async def cek_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    message = "━━━━━━━━━━━━━━━━━━━━\n🧿 **DAFTAR MEMBER** 🧿\n━━━━━━━━━━━━━━━━━━━━\n"
+    for user_id, name in WHITELIST_USERS.items():
+        saldo = USER_BALANCE.get(user_id, 0)
+        message += f"NAMA : {name}\nID TELE : {user_id}\nSALDO : {saldo}\n━━━━━━━━━━━━━━━━━━━━\n"
+    await query.message.reply_text(message, parse_mode="Markdown")
+
+# Jalankan bot
 def main():
     app = Application.builder().token(TOKEN).build()
-
     app.add_handler(CommandHandler("start", menu))
+    app.add_handler(CallbackQueryHandler(beli_paket, pattern="^MENU_BELI_PAKET"))
     app.add_handler(CallbackQueryHandler(menu_setting, pattern="^MENU_SETTING"))
     app.add_handler(CallbackQueryHandler(add_member, pattern="^ADD_MEMBER"))
+    app.add_handler(CallbackQueryHandler(cek_member, pattern="^CEK_MEMBER"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_add_member))
-
-    print("✅ Bot Connected!")  # Tambahan notifikasi di terminal/log
+    
+    print("✅ Bot Connected!")  # Notifikasi di terminal
     app.run_polling()
 
 if __name__ == "__main__":
