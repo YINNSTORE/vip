@@ -162,10 +162,8 @@ async def main():
 
 # Jalankan bot
 if __name__ == "__main__":
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+    import nest_asyncio
+    nest_asyncio.apply()  # FIX event loop yang sudah berjalan
 
-    loop.run_until_complete(main())
+    asyncio.run(main())  # Jalankan bot tanpa bentrok event loop
+
