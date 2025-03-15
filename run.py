@@ -13,7 +13,7 @@ TOKEN = "7667938486:AAGf1jtnAj__TwNUQhm7nzzncFyD0zw92vg"
 ADMIN_ID = 6353421952  
 
 # Data user
-WHITELIST_USERS = {ADMIN_ID: "AING"}
+WHITELIST_USERS = {ADMIN_ID: "ADMIN"}
 USER_BALANCE = {ADMIN_ID: 100000}  # Admin saldo awal 100000
 user_data = {}
 
@@ -116,6 +116,10 @@ STATUS : ✅ BERHASIL
         await update.message.reply_text(response, parse_mode="Markdown")
         user_data.pop(chat_id, None)
 
+# Notifikasi ke Admin saat bot nyala
+async def send_admin_notification(application):
+    await application.bot.send_message(chat_id=ADMIN_ID, text="✅ Bot Succes Connected! Bot By @yinnprovpn")
+
 # Handler bot
 def main():
     app = Application.builder().token(TOKEN).build()
@@ -124,6 +128,11 @@ def main():
     app.add_handler(CallbackQueryHandler(menu_setting, pattern="^MENU_SETTING"))
     app.add_handler(CallbackQueryHandler(add_member, pattern="^ADD_MEMBER"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_add_member))
+
+    print("✅ Bot Connected!")  # Tambahan notifikasi di terminal/log
+
+    # Kirim notifikasi ke admin setelah bot berjalan
+    app.post_init(send_admin_notification)
 
     app.run_polling()
 
