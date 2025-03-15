@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
@@ -9,22 +10,15 @@ logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s
 # Ganti dengan token bot dari @BotFather
 TOKEN = "7667938486:AAGf1jtnAj__TwNUQhm7nzzncFyD0zw92vg"
 
-# ID Telegram admin
+# ID Telegram admin (ganti dengan ID admin)
 ADMIN_ID = 6353421952  
 
 # Daftar ID user yang diperbolehkan mengakses bot (WHITELIST)
-WHITELIST_USERS = {ADMIN_ID: "Admin"}  # Format: {user_id: "nama"}
+WHITELIST_USERS = {ADMIN_ID: "AING"}  # Format: {user_id: "nama"}
 SALDO_MEMBER = {ADMIN_ID: 100000}  # Saldo default admin
 
 # Data sementara untuk input admin
 user_data = {}
-
-# Fungsi kirim notifikasi ke admin saat bot connect
-async def send_admin_notification(application: Application):
-    try:
-        await application.bot.send_message(ADMIN_ID, "✅ Bot Connected!")
-    except Exception as e:
-        logging.error(f"❌ Gagal mengirim notifikasi ke admin: {e}")
 
 # Fungsi cek akses user
 async def check_access(update: Update) -> bool:
@@ -154,7 +148,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await add_member(update, context)
 
 # Fungsi utama
-def main():
+async def main():
     app = Application.builder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", menu))
@@ -163,11 +157,9 @@ def main():
     app.add_handler(CallbackQueryHandler(menu_callback, pattern="^ADD_MEMBER"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_admin_input))
 
-    # Kirim notifikasi ke admin setelah bot jalan
-    app.post_init(lambda _: asyncio.create_task(send_admin_notification(app)))
-
     print("✅ Bot berjalan dengan sukses!")
-    app.run_polling()
+    await app.run_polling()
 
+# Jalankan bot
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
