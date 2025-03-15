@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
@@ -6,19 +7,18 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Mess
 # Logging untuk debugging
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 
-# Ganti dengan token bot dari @BotFather
+# Token bot
 TOKEN = "7667938486:AAGf1jtnAj__TwNUQhm7nzzncFyD0zw92vg"
 
-# ID Telegram admin (ganti dengan ID admin)
+# ID admin
 ADMIN_ID = 6353421952  
 
-# Daftar ID user yang diperbolehkan mengakses bot (WHITELIST)
+# Data user
 WHITELIST_USERS = {123456789: "ATMIN", 6353421952: "User2"}  # Format: {user_id: "nama"}
-
-# Data sementara untuk input admin & nomor HP
+USER_BALANCE = {123456789: 5000, 6353421952: 10000}  # Saldo masing-masing user
 user_data = {}
 
-# Fungsi untuk mengecek akses user
+# Fungsi cek akses
 async def check_access(update: Update) -> bool:
     user_id = update.message.chat_id
     if user_id not in WHITELIST_USERS:
@@ -26,144 +26,149 @@ async def check_access(update: Update) -> bool:
         return False
     return True
 
-# Fungsi menu utama
+# Menu utama
 async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await check_access(update):
         return
 
+    user_id = update.message.chat_id
+    status = "ADMIN" if user_id == ADMIN_ID else "MEMBER"
+    saldo = USER_BALANCE.get(user_id, 0)
+
+    message = f"""
+━━━━━━━━━━━━━━━━━━━━
+🧿 BOT PANEL TEMBAK 🧿
+━━━━━━━━━━━━━━━━━━━━
+STATUS : {status}
+SALDO : {saldo}
+ID TELE : {user_id}
+CONTACTS ADMIN @yinnprovpn
+━━━━━━━━━━━━━━━━━━━━
+"""
     keyboard = [
         [InlineKeyboardButton("🛒 Beli Paket", callback_data="MENU_BELI_PAKET")],
         [InlineKeyboardButton("📞 Contact Admin", callback_data="MENU_CONTACT_ADMIN")],
     ]
-
-    # Jika user adalah admin, tambahkan tombol Setting
-    if update.message.chat_id == ADMIN_ID:
+    if user_id == ADMIN_ID:
         keyboard.append([InlineKeyboardButton("⚙️ Setting", callback_data="MENU_SETTING")])
 
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("🔵 **Menu Utama** 🔵\nSilakan pilih menu:", parse_mode="Markdown", reply_markup=reply_markup)
+    await update.message.reply_text(message, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
 
-# Fungsi menu beli paket (memasukkan nomor HP)
+# Beli paket
 async def beli_paket(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     chat_id = query.message.chat_id
 
-    await query.message.reply_text("📲 **Masukkan nomor HP tujuan:**", parse_mode="Markdown")
-    
-    # Simpan status bahwa user sedang input nomor HP
-    user_data[chat_id] = {"step": "waiting_for_phone"}
+    await query.message.reply_text("📌 Masukkan nomor HP tujuan:")
+    user_data[chat_id] = {"step": "waiting_for_number"}
 
-# Fungsi menangani input nomor HP
-async def handle_user_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    # Set timeout
+    await asyncio.sleep(60)
+    if user_data.get(chat_id, {}).get("step") == "waiting_for_number":
+        await query.message.reply_text("⏳ **Sesi habis! Operasi dibatalkan.**", parse_mode="Markdown")
+        user_data.pop(chat_id, None)
+
+# Pilih paket setelah input nomor HP
+async def handle_number_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.message.chat_id
     text = update.message.text
 
-    if chat_id in user_data and user_data[chat_id].get("step") == "waiting_for_phone":
-        user_data[chat_id]["phone"] = text
-        user_data[chat_id]["step"] = "choosing_package"
+    if user_data.get(chat_id, {}).get("step") == "waiting_for_number":
+        user_data[chat_id] = {"phone": text, "step": "waiting_for_package"}
 
         keyboard = [
             [InlineKeyboardButton("📡 Xtra Unlimited Super", callback_data="PAKET_XTRA")],
-            [InlineKeyboardButton("🎥 Unlimited Vidio", callback_data="PAKET_VIDIO")]
+            [InlineKeyboardButton("🎥 Unlimited Vidio", callback_data="PAKET_VIDIO")],
         ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text("📦 **Pilih paket yang ingin dibeli:**", parse_mode="Markdown", reply_markup=reply_markup)
+        await update.message.reply_text("📦 **Pilih paket:**", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
 
-# Fungsi menangani pemilihan paket
-async def pilih_paket(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+# Proses beli paket
+async def beli_paket_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     chat_id = query.message.chat_id
     paket = query.data
 
-    if chat_id not in user_data or user_data[chat_id].get("step") != "choosing_package":
+    harga_admin = {"PAKET_XTRA": 2000, "PAKET_VIDIO": 5000}
+    harga_member = {"PAKET_XTRA": 5000, "PAKET_VIDIO": 8000}
+
+    user_id = query.message.chat_id
+    harga = harga_admin[paket] if user_id == ADMIN_ID else harga_member[paket]
+
+    if USER_BALANCE.get(user_id, 0) < harga:
+        await query.message.reply_text("❌ Saldo tidak cukup!")
         return
-    
-    user_data[chat_id]["package"] = paket
 
-    # Cek harga berdasarkan role (admin/member)
-    if chat_id == ADMIN_ID:
-        harga_xtra = "Rp 2.000"
-        harga_vidio = "Rp 5.000"
-    else:
-        harga_xtra = "Rp 5.000"
-        harga_vidio = "Rp 8.000"
+    USER_BALANCE[user_id] -= harga
+    await query.message.reply_text(f"✅ Paket berhasil dibeli! Saldo tersisa: {USER_BALANCE[user_id]}")
 
-    if paket == "PAKET_XTRA":
-        harga = harga_xtra
-        nama_paket = "Xtra Unlimited Super"
-    else:
-        harga = harga_vidio
-        nama_paket = "Unlimited Vidio"
+# Setting Admin
+async def menu_setting(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query.message.chat_id != ADMIN_ID:
+        await query.message.reply_text("❌ Akses Ditolak! Hanya admin yang bisa mengakses menu ini.")
+        return
 
-    await query.message.reply_text(f"✅ Paket **{nama_paket}** dipilih.\n💰 Harga: {harga}\n\n🔽 Pilih metode pembayaran:", parse_mode="Markdown")
-
-    # Tampilkan metode pembayaran
     keyboard = [
-        [InlineKeyboardButton("💳 GOPAY", callback_data="PAY_GOPAY")],
-        [InlineKeyboardButton("💰 DANA", callback_data="PAY_DANA")]
+        [InlineKeyboardButton("➕ Add Member", callback_data="ADD_MEMBER")],
+        [InlineKeyboardButton("💰 Add Saldo Member", callback_data="ADD_SALDO")],
+        [InlineKeyboardButton("📋 Cek Member", callback_data="CEK_MEMBER")],
     ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await query.message.reply_text("🔽 **Pilih metode pembayaran:**", parse_mode="Markdown", reply_markup=reply_markup)
+    await query.message.reply_text("⚙️ **Menu Setting** ⚙️\nPilih opsi di bawah:", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
 
-# Fungsi menangani pembayaran
-async def pembayaran(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+# Add saldo
+async def add_saldo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
-    chat_id = query.message.chat_id
-    metode = query.data
+    await query.message.reply_text("📌 Masukkan ID Telegram user:")
+    user_data[query.message.chat_id] = {"step": "waiting_for_id"}
 
-    if chat_id not in user_data or "package" not in user_data[chat_id]:
-        return
+async def handle_add_saldo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat_id = update.message.chat_id
+    text = update.message.text
 
-    if metode == "PAY_GOPAY":
-        metode_pembayaran = "GOPAY"
-        link_pembayaran = "https://gopay.link/pembayaran"
-    else:
-        metode_pembayaran = "DANA"
-        link_pembayaran = "https://dana.id/pembayaran"
+    if user_data.get(chat_id, {}).get("step") == "waiting_for_id":
+        user_data[chat_id] = {"id": int(text), "step": "waiting_for_amount"}
+        await update.message.reply_text("📌 Masukkan jumlah saldo:")
+    elif user_data.get(chat_id, {}).get("step") == "waiting_for_amount":
+        user_id = user_data[chat_id]["id"]
+        amount = int(text)
+        USER_BALANCE[user_id] = USER_BALANCE.get(user_id, 0) + amount
 
-    nomor_hp = user_data[chat_id]["phone"]
-    paket = user_data[chat_id]["package"]
+        response = f"""
+━━━━━━━━━━━━━━━━━━━━
+🧿 SUKSES ADD SALDO 🧿
+━━━━━━━━━━━━━━━━━━━━
+NAMA : {WHITELIST_USERS.get(user_id, 'Unknown')}
+ID TELE : {user_id}
+SALDO : {amount}
+TANGGAL : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+STATUS : ✅ BERHASIL
+@yinnprovpn
+━━━━━━━━━━━━━━━━━━━━
+"""
+        await update.message.reply_text(response, parse_mode="Markdown")
+        user_data.pop(chat_id, None)
 
-    # Cek harga berdasarkan role (admin/member)
-    if chat_id == ADMIN_ID:
-        harga = "Rp 2.000" if paket == "PAKET_XTRA" else "Rp 5.000"
-    else:
-        harga = "Rp 5.000" if paket == "PAKET_XTRA" else "Rp 8.000"
-
-    await query.message.reply_text(
-        f"💰 **Pembayaran via {metode_pembayaran}**\n"
-        f"📦 Paket: {('Xtra Unlimited Super' if paket == 'PAKET_XTRA' else 'Unlimited Vidio')}\n"
-        f"📲 Nomor: {nomor_hp}\n"
-        f"💵 Harga: {harga}\n\n"
-        f"🔗 **Silakan bayar melalui link berikut:**\n{link_pembayaran}",
-        parse_mode="Markdown"
-    )
-
-# Menangani callback query
-async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+# Cek member
+async def cek_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
-    data = query.data
+    message = "━━━━━━━━━━━━━━━━━━━━\n🧿 **DAFTAR MEMBER** 🧿\n━━━━━━━━━━━━━━━━━━━━\n"
+    for user_id, name in WHITELIST_USERS.items():
+        saldo = USER_BALANCE.get(user_id, 0)
+        message += f"NAMA : {name}\nID TELE : {user_id}\nSALDO : {saldo}\n━━━━━━━━━━━━━━━━━━━━\n"
+    await query.message.reply_text(message, parse_mode="Markdown")
 
-    if data == "MENU_BELI_PAKET":
-        await beli_paket(update, context)
-    elif data == "MENU_CONTACT_ADMIN":
-        await query.message.reply_text(f"📞 **Hubungi Admin:** [Klik di sini](tg://user?id={ADMIN_ID})", parse_mode="Markdown")
-    elif data.startswith("PAKET_"):
-        await pilih_paket(update, context)
-    elif data.startswith("PAY_"):
-        await pembayaran(update, context)
-
-# Main function
+# Jalankan bot
 def main():
     app = Application.builder().token(TOKEN).build()
-
     app.add_handler(CommandHandler("start", menu))
-    app.add_handler(CommandHandler("menu", menu))
-    app.add_handler(CallbackQueryHandler(menu_callback))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_user_input))
-
-    print("✅ Bot berjalan dengan sukses!")
+    app.add_handler(CommandHandler("timeout", menu))
+    app.add_handler(CallbackQueryHandler(beli_paket, pattern="^MENU_BELI_PAKET"))
+    app.add_handler(CallbackQueryHandler(menu_setting, pattern="^MENU_SETTING"))
+    app.add_handler(CallbackQueryHandler(add_saldo, pattern="^ADD_SALDO"))
+    app.add_handler(CallbackQueryHandler(cek_member, pattern="^CEK_MEMBER"))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_add_saldo))
     app.run_polling()
 
 if __name__ == "__main__":
     main()
+    
