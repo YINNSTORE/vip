@@ -158,6 +158,7 @@ async def cek_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 def main():
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", menu))
+    app.add_handler(CommandHandler("menu", menu))
     app.add_handler(CallbackQueryHandler(beli_paket, pattern="^MENU_BELI_PAKET"))
     app.add_handler(CallbackQueryHandler(menu_setting, pattern="^MENU_SETTING"))
     app.add_handler(CallbackQueryHandler(add_member, pattern="^ADD_MEMBER"))
