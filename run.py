@@ -14,7 +14,7 @@ TOKEN = "7667938486:AAGf1jtnAj__TwNUQhm7nzzncFyD0zw92vg"
 ADMIN_ID = 6353421952  
 
 # Daftar ID user yang diperbolehkan mengakses bot (WHITELIST)
-WHITELIST_USERS = {ADMIN_ID: "AING"}  # Format: {user_id: "nama"}
+WHITELIST_USERS = {ADMIN_ID: "Admin"}  # Format: {user_id: "nama"}
 SALDO_MEMBER = {ADMIN_ID: 100000}  # Saldo default admin
 
 # Data sementara untuk input admin
@@ -162,4 +162,6 @@ async def main():
 
 # Jalankan bot
 if __name__ == "__main__":
-    asyncio.run(main())
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
+
