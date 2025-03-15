@@ -1,10 +1,10 @@
-import os
+from pyrogram import Client, filters
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 import yaml
 import base64
 import json
 from datetime import datetime
-from pyrogram import Client, filters
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, BotCommand
+import os
 
 # Konfigurasi Bot Telegram
 API_ID = 21635979  # Ganti dengan API ID Telegram
@@ -18,7 +18,7 @@ ADMIN_IDS = [6353421952]  # Ganti dengan ID Telegram admin
 
 # 🔘 Menu Utama dengan Banner & Contact Admin
 @app.on_message(filters.command(["start", "stb"]))
-def start(client, message):
+async def start(client, message):
     user_id = message.from_user.id
     first_name = message.from_user.first_name
 
@@ -42,11 +42,11 @@ def start(client, message):
         [InlineKeyboardButton("📞 Contact Admin", url="https://t.me/yinnprovpn")]
     ])
 
-    message.reply(banner, reply_markup=keyboard, parse_mode="Markdown")
+    await message.reply(banner, reply_markup=keyboard, parse_mode="Markdown")
 
 # 📥 Terima Link Akun & Generate Config
 @app.on_message(filters.text)
-def generate_stb_config(client, message):
+async def generate_stb_config(client, message):
     try:
         akun_link = message.text.strip()
 
@@ -62,7 +62,7 @@ def generate_stb_config(client, message):
             akun_type = "Trojan"
             data = parse_trojan(akun_link)
         else:
-            message.reply("❌ Format akun tidak valid! Kirimkan link yang benar (VMess/VLESS/Trojan).")
+            await message.reply("❌ Format akun tidak valid! Kirimkan link yang benar (VMess/VLESS/Trojan).")
             return
 
         # 🔥 Generate Config .yaml
@@ -96,7 +96,7 @@ def generate_stb_config(client, message):
             yaml.dump(stb_config, f, default_flow_style=False)
 
         # 🔥 Kirim Config ke User
-        message.reply_document(yaml_file, caption="✅ Config STB OpenWRT berhasil dibuat!")
+        await message.reply_document(yaml_file, caption="✅ Config STB OpenWRT berhasil dibuat!")
         os.remove(yaml_file)
 
         # 🔥 Kirim Pesan Sukses
@@ -109,10 +109,10 @@ def generate_stb_config(client, message):
 **TANGGAL:** {tanggal_sekarang}
 **CONTACT ADMIN:** @yinnprovpn
 ━━━━━━━━━━━━━━━━━━━━"""
-        message.reply(pesan_sukses, parse_mode="Markdown")
+        await message.reply(pesan_sukses, parse_mode="Markdown")
 
     except Exception as e:
-        message.reply(f"❌ Error saat membuat config: {e}")
+        await message.reply(f"❌ Error saat membuat config: {e}")
 
 # 🔍 Parsing VLESS
 def parse_vless(link):
@@ -146,11 +146,6 @@ def parse_trojan(link):
         "sni": host,
         "network": "ws"
     }
-
-# 🚀 Set Perintah Bot
-app.add_handler(filters.command("start")(start))
-app.add_handler(filters.command("stb")(start))
-app.add_handler(filters.text)(generate_stb_config)
 
 # Jalankan Bot
 if __name__ == "__main__":
