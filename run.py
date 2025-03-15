@@ -3,21 +3,30 @@ from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
-# Logging
+# Logging untuk debugging
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 
-# Token bot
+# Ganti dengan token bot dari @BotFather
 TOKEN = "7667938486:AAGf1jtnAj__TwNUQhm7nzzncFyD0zw92vg"
 
-# ID admin
+# ID Telegram admin
 ADMIN_ID = 6353421952  
 
-# Data user
-WHITELIST_USERS = {ADMIN_ID: "ADMIN"}
-USER_BALANCE = {ADMIN_ID: 100000}  # Admin saldo awal 100000
+# Daftar ID user yang diperbolehkan mengakses bot (WHITELIST)
+WHITELIST_USERS = {ADMIN_ID: "Admin"}  # Format: {user_id: "nama"}
+SALDO_MEMBER = {ADMIN_ID: 100000}  # Saldo default admin
+
+# Data sementara untuk input admin
 user_data = {}
 
-# Fungsi cek akses
+# Fungsi kirim notifikasi ke admin saat bot connect
+async def send_admin_notification(application: Application):
+    try:
+        await application.bot.send_message(ADMIN_ID, "✅ Bot Connected!")
+    except Exception as e:
+        logging.error(f"❌ Gagal mengirim notifikasi ke admin: {e}")
+
+# Fungsi cek akses user
 async def check_access(update: Update) -> bool:
     user_id = update.message.chat_id
     if user_id not in WHITELIST_USERS:
@@ -25,49 +34,56 @@ async def check_access(update: Update) -> bool:
         return False
     return True
 
-# Menu utama
+# Fungsi menu utama
 async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await check_access(update):
         return
 
     user_id = update.message.chat_id
-    status = "ADMIN" if user_id == ADMIN_ID else "MEMBER"
-    saldo = USER_BALANCE.get(user_id, 0)
+    status_user = "ADMIN" if user_id == ADMIN_ID else "MEMBER"
+    saldo = SALDO_MEMBER.get(user_id, 0)
 
-    message = f"""
-━━━━━━━━━━━━━━━━━━━━
-🧿 BOT PANEL TEMBAK 🧿
-━━━━━━━━━━━━━━━━━━━━
-STATUS : {status}
-SALDO : {saldo}
-ID TELE : {user_id}
-CONTACTS ADMIN @yinnprovpn
-━━━━━━━━━━━━━━━━━━━━
-"""
     keyboard = [
         [InlineKeyboardButton("🛒 Beli Paket", callback_data="MENU_BELI_PAKET")],
         [InlineKeyboardButton("📞 Contact Admin", callback_data="MENU_CONTACT_ADMIN")],
     ]
+
     if user_id == ADMIN_ID:
         keyboard.append([InlineKeyboardButton("⚙️ Setting", callback_data="MENU_SETTING")])
 
-    await update.message.reply_text(message, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    menu_text = f"""
+━━━━━━━━━━━━━━━━━━━━
+🧿 BOT PANEL TEMBAK 🧿
+━━━━━━━━━━━━━━━━━━━━
+STATUS : {status_user}
+SALDO : {saldo}
+ID TELE : {user_id}
+CONTACT ADMIN @yinnprovpn
+━━━━━━━━━━━━━━━━━━━━
+"""
+    await update.message.reply_text(menu_text, parse_mode="Markdown", reply_markup=reply_markup)
 
-# Setting Admin
+# Fungsi menu Setting (khusus admin)
 async def menu_setting(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
-    if query.message.chat_id != ADMIN_ID:
+    chat_id = query.message.chat_id
+
+    if chat_id != ADMIN_ID:
         await query.message.reply_text("❌ Akses Ditolak! Hanya admin yang bisa mengakses menu ini.")
         return
 
     keyboard = [
         [InlineKeyboardButton("➕ Add Member", callback_data="ADD_MEMBER")],
         [InlineKeyboardButton("💰 Add Saldo Member", callback_data="ADD_SALDO")],
-        [InlineKeyboardButton("📋 Cek Member", callback_data="CEK_MEMBER")],
+        [InlineKeyboardButton("👤 Cek Member", callback_data="CEK_MEMBER")],
     ]
-    await query.message.reply_text("⚙️ **Menu Setting** ⚙️\nPilih opsi di bawah:", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
+    
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.message.reply_text("⚙️ **Menu Setting** ⚙️\nPilih opsi di bawah:", parse_mode="Markdown", reply_markup=reply_markup)
 
-# Proses Add Member
+# Fungsi menambahkan user ke whitelist
 async def add_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     chat_id = query.message.chat_id
@@ -76,64 +92,81 @@ async def add_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await query.message.reply_text("❌ Akses Ditolak! Hanya admin yang bisa menambah member.")
         return
 
-    await query.message.reply_text("📌 **Masukkan ID Telegram member:**", parse_mode="Markdown")
+    await query.message.reply_text("✏️ **Masukkan ID member:**", parse_mode="Markdown")
     user_data[chat_id] = {"step": "waiting_for_id"}
 
-async def handle_add_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+# Fungsi menangani input dari admin
+async def handle_admin_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.message.chat_id
     text = update.message.text
 
-    if user_data.get(chat_id, {}).get("step") == "waiting_for_id":
-        try:
-            new_user_id = int(text)
-            if new_user_id in WHITELIST_USERS:
-                await update.message.reply_text(f"⚠️ User dengan ID `{new_user_id}` sudah ada di whitelist.", parse_mode="Markdown")
-                return
+    if chat_id == ADMIN_ID:
+        step = user_data.get(chat_id, {}).get("step")
 
-            user_data[chat_id] = {"new_user_id": new_user_id, "step": "waiting_for_name"}
-            await update.message.reply_text("📌 **Masukkan Nama Member:**", parse_mode="Markdown")
-        except ValueError:
-            await update.message.reply_text("❌ Format ID tidak valid! Masukkan angka saja.")
+        if step == "waiting_for_id":
+            try:
+                new_user_id = int(text)
+                if new_user_id in WHITELIST_USERS:
+                    await update.message.reply_text(f"⚠️ User dengan ID `{new_user_id}` sudah ada di whitelist.", parse_mode="Markdown")
+                    return
 
-    elif user_data.get(chat_id, {}).get("step") == "waiting_for_name":
-        new_user_id = user_data[chat_id]["new_user_id"]
+                user_data[chat_id]["new_user_id"] = new_user_id
+                user_data[chat_id]["step"] = "waiting_for_name"
+                await update.message.reply_text("📝 **Masukkan Nama Member:**", parse_mode="Markdown")
 
-        WHITELIST_USERS[new_user_id] = text
-        USER_BALANCE[new_user_id] = 50000  # Set saldo awal 50.000
+            except ValueError:
+                await update.message.reply_text("❌ Format ID tidak valid! Masukkan angka saja.")
 
-        response = f"""
+        elif step == "waiting_for_name":
+            new_user_id = user_data[chat_id].get("new_user_id")
+
+            if new_user_id:
+                WHITELIST_USERS[new_user_id] = text
+                SALDO_MEMBER[new_user_id] = 50000  # Tambahkan saldo awal
+
+                tanggal = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                response = f"""
 ━━━━━━━━━━━━━━━━━━━━
 🧿 SUKSES ADD MEMBER 🧿
 ━━━━━━━━━━━━━━━━━━━━
 NAMA : {text}
 ID TELE : {new_user_id}
-SALDO : 50.000
-TANGGAL : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+TANGGAL : {tanggal}
 STATUS : ✅ BERHASIL
 @yinnprovpn
 ━━━━━━━━━━━━━━━━━━━━
 """
-        await update.message.reply_text(response, parse_mode="Markdown")
-        user_data.pop(chat_id, None)
+                await update.message.reply_text(response, parse_mode="Markdown")
+                user_data.pop(chat_id, None)
 
-# Notifikasi ke Admin saat bot nyala
-async def send_admin_notification(application):
-    await application.bot.send_message(chat_id=ADMIN_ID, text="✅ Bot Succes Connected! Bot By @yinnprovpn")
+# Fungsi menangani callback query
+async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    data = query.data
 
-# Handler bot
+    if data == "MENU_BELI_PAKET":
+        await query.message.reply_text("Masukkan nomor HP tujuan:")
+    elif data == "MENU_CONTACT_ADMIN":
+        await query.message.reply_text(f"📞 **Hubungi Admin:** [Klik di sini](tg://user?id={ADMIN_ID})", parse_mode="Markdown")
+    elif data == "MENU_SETTING":
+        await menu_setting(update, context)
+    elif data == "ADD_MEMBER":
+        await add_member(update, context)
+
+# Fungsi utama
 def main():
     app = Application.builder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", menu))
-    app.add_handler(CallbackQueryHandler(menu_setting, pattern="^MENU_SETTING"))
-    app.add_handler(CallbackQueryHandler(add_member, pattern="^ADD_MEMBER"))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_add_member))
+    app.add_handler(CommandHandler("menu", menu))
+    app.add_handler(CallbackQueryHandler(menu_callback, pattern="^MENU_"))
+    app.add_handler(CallbackQueryHandler(menu_callback, pattern="^ADD_MEMBER"))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_admin_input))
 
-    print("✅ Bot Connected!")  # Tambahan notifikasi di terminal/log
+    # Kirim notifikasi ke admin setelah bot jalan
+    app.post_init(lambda _: asyncio.create_task(send_admin_notification(app)))
 
-    # Kirim notifikasi ke admin setelah bot berjalan
-    app.post_init(send_admin_notification)
-
+    print("✅ Bot berjalan dengan sukses!")
     app.run_polling()
 
 if __name__ == "__main__":
