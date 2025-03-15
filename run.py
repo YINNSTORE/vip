@@ -14,8 +14,8 @@ TOKEN = "7667938486:AAGf1jtnAj__TwNUQhm7nzzncFyD0zw92vg"
 ADMIN_ID = 6353421952  
 
 # Data user
-WHITELIST_USERS = {123456789: "ATMIN", 6353421952: "User2"}  # Format: {user_id: "nama"}
-USER_BALANCE = {123456789: 5000, 6353421952: 10000}  # Saldo masing-masing user
+WHITELIST_USERS = {123456789: "Aing", 6353421952: "User2"}  
+USER_BALANCE = {123456789: 5000, 6353421952: 10000}  
 user_data = {}
 
 # Fungsi cek akses
@@ -42,47 +42,19 @@ async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 STATUS : {status}
 SALDO : {saldo}
 ID TELE : {user_id}
-CONTACTS ADMIN @yinnprovpn
+CONTACT ADMIN [@yinnprovpn](https://t.me/yinnprovpn)
 ━━━━━━━━━━━━━━━━━━━━
 """
     keyboard = [
         [InlineKeyboardButton("🛒 Beli Paket", callback_data="MENU_BELI_PAKET")],
-        [InlineKeyboardButton("📞 Contact Admin", callback_data="MENU_CONTACT_ADMIN")],
+        [InlineKeyboardButton("📞 Contact Admin", url="https://t.me/yinnprovpn")],
     ]
     if user_id == ADMIN_ID:
         keyboard.append([InlineKeyboardButton("⚙️ Setting", callback_data="MENU_SETTING")])
 
     await update.message.reply_text(message, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
 
-# Beli paket
-async def beli_paket(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    chat_id = query.message.chat_id
-
-    await query.message.reply_text("📌 Masukkan nomor HP tujuan:")
-    user_data[chat_id] = {"step": "waiting_for_number"}
-
-    # Set timeout
-    await asyncio.sleep(60)
-    if user_data.get(chat_id, {}).get("step") == "waiting_for_number":
-        await query.message.reply_text("⏳ **Sesi habis! Operasi dibatalkan.**", parse_mode="Markdown")
-        user_data.pop(chat_id, None)
-
-# Pilih paket setelah input nomor HP
-async def handle_number_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    chat_id = update.message.chat_id
-    text = update.message.text
-
-    if user_data.get(chat_id, {}).get("step") == "waiting_for_number":
-        user_data[chat_id] = {"phone": text, "step": "waiting_for_package"}
-
-        keyboard = [
-            [InlineKeyboardButton("📡 Xtra Unlimited Super", callback_data="PAKET_XTRA")],
-            [InlineKeyboardButton("🎥 Unlimited Vidio", callback_data="PAKET_VIDIO")],
-        ]
-        await update.message.reply_text("📦 **Pilih paket:**", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
-
-# Setting Admin
+# Menu Setting (Admin Only)
 async def menu_setting(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     if query.message.chat_id != ADMIN_ID:
@@ -96,17 +68,11 @@ async def menu_setting(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     ]
     await query.message.reply_text("⚙️ **Menu Setting** ⚙️\nPilih opsi di bawah:", parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
 
-# Add Member
+# Add Member (Format List Sukses)
 async def add_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
-    chat_id = query.message.chat_id
-
-    if chat_id != ADMIN_ID:
-        await query.message.reply_text("❌ Akses Ditolak! Hanya admin yang bisa menambah member.")
-        return
-
     await query.message.reply_text("📌 **Masukkan ID Telegram member:**", parse_mode="Markdown")
-    user_data[chat_id] = {"step": "waiting_for_id"}
+    user_data[query.message.chat_id] = {"step": "waiting_for_id"}
 
 async def handle_add_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.message.chat_id
@@ -128,7 +94,7 @@ async def handle_add_member(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         new_user_id = user_data[chat_id]["new_user_id"]
 
         WHITELIST_USERS[new_user_id] = text
-        USER_BALANCE[new_user_id] = 50000  # Set saldo awal 50.000
+        USER_BALANCE[new_user_id] = 50000  
 
         response = f"""
 ━━━━━━━━━━━━━━━━━━━━
@@ -136,7 +102,7 @@ async def handle_add_member(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 ━━━━━━━━━━━━━━━━━━━━
 NAMA : {text}
 ID TELE : {new_user_id}
-SALDO : 50.000
+SALDO AWAL : 50.000
 TANGGAL : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 STATUS : ✅ BERHASIL
 @yinnprovpn
@@ -145,27 +111,64 @@ STATUS : ✅ BERHASIL
         await update.message.reply_text(response, parse_mode="Markdown")
         user_data.pop(chat_id, None)
 
-# Cek member
-async def cek_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+# Add Saldo (Format List Sukses)
+async def add_saldo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
-    message = "━━━━━━━━━━━━━━━━━━━━\n🧿 **DAFTAR MEMBER** 🧿\n━━━━━━━━━━━━━━━━━━━━\n"
-    for user_id, name in WHITELIST_USERS.items():
-        saldo = USER_BALANCE.get(user_id, 0)
-        message += f"NAMA : {name}\nID TELE : {user_id}\nSALDO : {saldo}\n━━━━━━━━━━━━━━━━━━━━\n"
-    await query.message.reply_text(message, parse_mode="Markdown")
+    await query.message.reply_text("📌 **Masukkan ID Telegram user:**", parse_mode="Markdown")
+    user_data[query.message.chat_id] = {"step": "waiting_for_id_saldo"}
+
+async def handle_add_saldo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat_id = update.message.chat_id
+    text = update.message.text
+
+    if user_data.get(chat_id, {}).get("step") == "waiting_for_id_saldo":
+        try:
+            target_id = int(text)
+            if target_id not in WHITELIST_USERS:
+                await update.message.reply_text("❌ User tidak ditemukan di whitelist.")
+                return
+
+            user_data[chat_id] = {"target_id": target_id, "step": "waiting_for_saldo"}
+            await update.message.reply_text("📌 **Masukkan jumlah saldo yang ingin ditambahkan:**", parse_mode="Markdown")
+        except ValueError:
+            await update.message.reply_text("❌ Format ID tidak valid! Masukkan angka saja.")
+
+    elif user_data.get(chat_id, {}).get("step") == "waiting_for_saldo":
+        try:
+            amount = int(text)
+            target_id = user_data[chat_id]["target_id"]
+
+            USER_BALANCE[target_id] += amount
+
+            response = f"""
+━━━━━━━━━━━━━━━━━━━━
+🧿 SUKSES ADD SALDO 🧿
+━━━━━━━━━━━━━━━━━━━━
+NAMA : {WHITELIST_USERS.get(target_id, 'Unknown')}
+ID TELE : {target_id}
+SALDO DITAMBAHKAN : {amount}
+SALDO TOTAL : {USER_BALANCE[target_id]}
+TANGGAL : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+STATUS : ✅ BERHASIL
+@yinnprovpn
+━━━━━━━━━━━━━━━━━━━━
+"""
+            await update.message.reply_text(response, parse_mode="Markdown")
+            user_data.pop(chat_id, None)
+        except ValueError:
+            await update.message.reply_text("❌ Format saldo tidak valid! Masukkan angka saja.")
 
 # Jalankan bot
 def main():
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", menu))
-    app.add_handler(CommandHandler("menu", menu))
-    app.add_handler(CallbackQueryHandler(beli_paket, pattern="^MENU_BELI_PAKET"))
     app.add_handler(CallbackQueryHandler(menu_setting, pattern="^MENU_SETTING"))
     app.add_handler(CallbackQueryHandler(add_member, pattern="^ADD_MEMBER"))
-    app.add_handler(CallbackQueryHandler(cek_member, pattern="^CEK_MEMBER"))
+    app.add_handler(CallbackQueryHandler(add_saldo, pattern="^ADD_SALDO"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_add_member))
-    
-    print("✅ Bot Connected!")  # Notifikasi di terminal
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_add_saldo))
+
+    print("✅ Bot Connected!")
     app.run_polling()
 
 if __name__ == "__main__":
