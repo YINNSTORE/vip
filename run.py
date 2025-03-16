@@ -6,7 +6,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils import executor
 
 # Token bot Telegram
-TOKEN = "ISI_TOKEN_BOT_KAMU"
+TOKEN = "8024500353:AAHg3SUbXKN6AcWpyow0JdR_3Xz0Z1DGZUE"
 
 # Direktori penyimpanan file sementara
 TEMP_DIR = "temp"
