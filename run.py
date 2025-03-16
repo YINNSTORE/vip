@@ -1,115 +1,112 @@
-import logging
 import os
+import shutil
 import subprocess
 from aiogram import Bot, Dispatcher, types
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram.utils import executor
 
-# Token bot Telegram
 TOKEN = "8024500353:AAHg3SUbXKN6AcWpyow0JdR_3Xz0Z1DGZUE"
 
-# Direktori penyimpanan file sementara
-TEMP_DIR = "temp"
-os.makedirs(TEMP_DIR, exist_ok=True)
-
-# Inisialisasi bot
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
 
-# Log
-logging.basicConfig(level=logging.INFO)
+# Tombol keyboard
+keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
+keyboard.add(KeyboardButton("📂 Kirim File Bash"))
 
-# Tombol daftar decrypt
-decrypt_menu = InlineKeyboardMarkup(row_width=2)
-decrypt_menu.add(
-    InlineKeyboardButton("🔑 SHC", callback_data="decrypt_shc"),
-    InlineKeyboardButton("🔑 BashRock", callback_data="decrypt_bashrock"),
-    InlineKeyboardButton("🔑 Eval", callback_data="decrypt_eval"),
-    InlineKeyboardButton("🔑 Base64", callback_data="decrypt_base64"),
-    InlineKeyboardButton("🔑 Base64 Eval", callback_data="decrypt_base64eval"),
-)
+# Fungsi untuk mendeteksi enkripsi
+def deteksi_enkripsi(file_path):
+    with open(file_path, "r", encoding="latin-1") as f:
+        content = f.read()
 
-# Command /start
-@dp.message_handler(commands=["start"])
-async def start(msg: types.Message):
-    text = (
-        "🚀 Kirim file bash yang akan di-decrypt\n"
-        "⚙️ **Daftar yang bisa di-decrypt bot:**\n"
-        "1️⃣ SHC\n"
-        "2️⃣ BashRock\n"
-        "3️⃣ Eval\n"
-        "4️⃣ Base64\n"
-        "5️⃣ Base64Eval\n"
-        "❌ Bzip2 dan Gzip belum support\n"
-    )
-    await msg.reply(text, reply_markup=decrypt_menu, parse_mode="Markdown")
-
-# Handler untuk menerima file bash
-@dp.message_handler(content_types=types.ContentType.DOCUMENT)
-async def receive_file(message: types.Message):
-    file_id = message.document.file_id
-    file_name = message.document.file_name
-
-    # Cek apakah file berekstensi .sh
-    if not file_name.endswith(".sh"):
-        await message.reply("❌ File harus berformat .sh")
-        return
-
-    # Unduh file
-    file_path = os.path.join(TEMP_DIR, file_name)
-    await message.document.download(destination_file=file_path)
-
-    # Cek apakah file terenkripsi
-    decrypted_file_path = decrypt_bash(file_path)
-    
-    if decrypted_file_path:
-        # Kirim hasil decrypt ke pengguna
-        with open(decrypted_file_path, "rb") as f:
-            await bot.send_document(message.chat.id, f)
-        
-        await message.reply("✅ Done!", parse_mode="Markdown")
+    if "shc" in content:
+        return "shc"
+    elif "base64" in content and "eval" in content:
+        return "base64eval"
+    elif "base64" in content:
+        return "base64"
+    elif "eval" in content:
+        return "eval"
+    elif "BashRock" in content:
+        return "bashrock"
     else:
-        await message.reply("❌ Gagal decrypt file.")
+        return "unknown"
 
-# Fungsi decrypt file Bash
-def decrypt_bash(file_path):
+# Fungsi untuk mendekripsi file
+def decrypt_file(file_path, encryption_type):
+    decrypted_file = file_path + ".decrypted.sh"
+    
     try:
-        with open(file_path, "r") as f:
-            content = f.read()
+        if encryption_type == "shc":
+            decrypted_file = file_path.replace(".sh.x.c", ".sh")
+            subprocess.run(["unshc", "-f", file_path], check=True)
+        
+        elif encryption_type == "base64":
+            with open(file_path, "r") as f:
+                encoded_content = f.read()
+            decoded_content = subprocess.run(["base64", "-d"], input=encoded_content.encode(), capture_output=True, text=True).stdout
+            with open(decrypted_file, "w") as f:
+                f.write(decoded_content)
+        
+        elif encryption_type == "base64eval":
+            with open(file_path, "r") as f:
+                content = f.read().replace("eval", "").replace("base64", "")
+            decoded_content = subprocess.run(["base64", "-d"], input=content.encode(), capture_output=True, text=True).stdout
+            with open(decrypted_file, "w") as f:
+                f.write(decoded_content)
 
-        # Deteksi jenis enkripsi
-        if "shc" in content:
-            return decrypt_shc(file_path)
-        elif "base64" in content:
-            return decrypt_base64(file_path)
-        elif "eval" in content:
-            return decrypt_eval(file_path)
+        elif encryption_type == "eval":
+            with open(file_path, "r") as f:
+                content = f.read().replace("eval", "")
+            with open(decrypted_file, "w") as f:
+                f.write(content)
+
+        elif encryption_type == "bashrock":
+            decrypted_file = file_path.replace(".bashrock", ".sh")
+            subprocess.run(["bash", "-c", f"bash_decrypt {file_path} > {decrypted_file}"], check=True)
+
         else:
             return None
+    
+        return decrypted_file
+
     except Exception as e:
-        logging.error(f"Error decrypting file: {e}")
         return None
 
-# Fungsi decrypt SHC
-def decrypt_shc(file_path):
-    output_path = file_path.replace(".sh", "_decrypted.sh")
-    cmd = f"unshc {file_path} -o {output_path}"  # Harus install unshc
-    subprocess.run(cmd, shell=True)
-    return output_path if os.path.exists(output_path) else None
+# Handler untuk /start
+@dp.message_handler(commands=["start"])
+async def start_command(message: types.Message):
+    await message.reply("🚀 Kirim file bash yang akan di-decrypt\n⚙️ Bot akan otomatis mendeteksi dan mendekripsi!", reply_markup=keyboard)
 
-# Fungsi decrypt Base64
-def decrypt_base64(file_path):
-    output_path = file_path.replace(".sh", "_decrypted.sh")
-    cmd = f"base64 -d {file_path} > {output_path}"
-    subprocess.run(cmd, shell=True)
-    return output_path if os.path.exists(output_path) else None
+# Handler untuk menerima file
+@dp.message_handler(content_types=types.ContentType.DOCUMENT)
+async def handle_file(message: types.Message):
+    file_id = message.document.file_id
+    file_name = message.document.file_name
+    file_info = await bot.get_file(file_id)
+    file_path = file_info.file_path
+    local_file_path = f"./{file_name}"
 
-# Fungsi decrypt Eval
-def decrypt_eval(file_path):
-    output_path = file_path.replace(".sh", "_decrypted.sh")
-    cmd = f"sed 's/eval//g' {file_path} > {output_path}"
-    subprocess.run(cmd, shell=True)
-    return output_path if os.path.exists(output_path) else None
+    await message.document.download(destination_file=local_file_path)
+    
+    encryption_type = deteksi_enkripsi(local_file_path)
+
+    if encryption_type == "unknown":
+        await message.reply("⚠️ File tidak terdeteksi memiliki enkripsi yang didukung!")
+        os.remove(local_file_path)
+        return
+
+    await message.reply(f"🔍 Detected Encryption: **{encryption_type.upper()}**\n⏳ Processing Decryption...")
+
+    decrypted_file = decrypt_file(local_file_path, encryption_type)
+
+    if decrypted_file:
+        await message.reply_document(open(decrypted_file, "rb"), caption="✅ Decryption Success!")
+        os.remove(decrypted_file)
+    else:
+        await message.reply("❌ Gagal mendekripsi file!")
+
+    os.remove(local_file_path)
 
 # Jalankan bot
 if __name__ == "__main__":
