@@ -1,102 +1,91 @@
-import asyncio
 import os
-import subprocess
-from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command
-from aiogram.types import FSInputFile, InlineKeyboardMarkup, InlineKeyboardButton
+import yaml
+import base64
+from pyrogram import Client, filters
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# Ganti dengan token bot Telegram kamu
-TOKEN = "8024500353:AAHg3SUbXKN6AcWpyow0JdR_3Xz0Z1DGZUE"
-bot = Bot(token=TOKEN)
-dp = Dispatcher()
+# Ganti dengan kredensial bot kamu
+API_ID = "21635979"
+API_HASH = "cbc12884284bc3457360ca9b9d37b94e"
+BOT_TOKEN = "8024500353:AAHg3SUbXKN6AcWpyow0JdR_3Xz0Z1DGZUE"
 
-# Fungsi untuk mendeteksi jenis enkripsi
-def detect_encryption(file_path):
+bot = Client("clash_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+
+# Fungsi untuk decode VMess
+def decode_vmess(vmess_link):
     try:
-        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-            content = f.read()
-            if "shc" in content:
-                return "shc"
-            elif "bashrock" in content:
-                return "bashrock"
-            elif "eval" in content:
-                return "eval"
-            elif "base64" in content:
-                return "base64"
-            else:
-                return "unknown"
-    except Exception as e:
-        return f"error: {str(e)}"
+        encoded_data = vmess_link.replace("vmess://", "")
+        decoded_data = base64.b64decode(encoded_data + "=" * (-len(encoded_data) % 4)).decode("utf-8")
+        return yaml.safe_load(decoded_data)
+    except:
+        return None
 
-# Fungsi untuk dekripsi berdasarkan jenis enkripsi
-def decrypt_file(file_path, encryption_type):
-    output_path = file_path.replace(".sh", "_decrypted.sh")
+# Fungsi buat file YAML Clash
+def generate_yaml(config_data, file_name, protocol):
+    config = {
+        "proxies": [
+            {
+                "name": config_data.get("ps", "MyProxy"),
+                "type": protocol,
+                "server": config_data.get("add"),
+                "port": config_data.get("port"),
+                "uuid": config_data.get("id") if protocol == "vmess" else None,
+                "alterId": config_data.get("aid") if protocol == "vmess" else None,
+                "password": config_data.get("id") if protocol == "trojan" else None,
+                "cipher": "auto",
+                "tls": config_data.get("tls", "false") == "true"
+            }
+        ]
+    }
     
-    if encryption_type == "shc":
-        cmd = f"unshc -f {file_path} -o {output_path}"
-    elif encryption_type == "bashrock":
-        cmd = f"bashrock -d {file_path} -o {output_path}"
-    elif encryption_type == "eval":
-        cmd = f"cat {file_path} | sed 's/eval /echo /g' > {output_path}"
-    elif encryption_type == "base64":
-        cmd = f"base64 -d {file_path} > {output_path}"
-    else:
-        return None
+    yaml_path = f"./yinn-clash-{protocol}.yaml"
+    with open(yaml_path, "w") as f:
+        yaml.dump(config, f, default_flow_style=False)
 
-    try:
-        subprocess.run(cmd, shell=True, check=True)
-        return output_path
-    except subprocess.CalledProcessError:
-        return None
+    return yaml_path
 
-# Start command
-@dp.message(Command("start"))
-async def start_command(message: types.Message):
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📂 Kirim File untuk Decrypt", callback_data="send_file")],
-        [InlineKeyboardButton(text="🔄 Bantuan", callback_data="help")]
+# Handle /start dengan button
+@bot.on_message(filters.command("start"))
+def start(client, message):
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🚀 BUAT CONFIG", callback_data="buat_config")]
     ])
-    await message.answer("🚀 Kirim file bash (.sh) untuk di-decrypt!", reply_markup=keyboard)
+    message.reply_text("🔹 Selamat datang di *Yinn Clash Bot*! Klik tombol di bawah untuk buat config.", reply_markup=keyboard)
 
-# Handle file upload
-@dp.message(lambda message: message.document and message.document.mime_type == "application/x-sh")
-async def handle_file(message: types.Message):
-    file_id = message.document.file_id
-    file_name = message.document.file_name
+# Handle tombol "BUAT CONFIG"
+@bot.on_callback_query(filters.regex("buat_config"))
+def buat_config(client, callback_query):
+    callback_query.message.reply_text("⚡ Kirim akun dengan format berikut:\n\n- `vmess://...`\n- `vless://...`\n- `trojan://...`", parse_mode="Markdown")
 
-    file = await bot.get_file(file_id)
-    file_path = f"downloads/{file_name}"
-
-    await bot.download_file(file.file_path, file_path)
-    encryption_type = detect_encryption(file_path)
-
-    if encryption_type == "unknown":
-        await message.answer("❌ File tidak terdeteksi memiliki enkripsi yang didukung.")
+# Handle link VMess/VLESS/Trojan
+@bot.on_message(filters.text & filters.private)
+def handle_account(client, message):
+    text = message.text.strip()
+    
+    if text.startswith("vmess://"):
+        config_data = decode_vmess(text)
+        protocol = "vmess"
+    elif text.startswith("vless://"):
+        config_data = {"add": text.split("@")[1].split(":")[0], "port": text.split("@")[1].split(":")[1].split("?")[0]}
+        protocol = "vless"
+    elif text.startswith("trojan://"):
+        config_data = {"add": text.split("@")[1].split(":")[0], "port": text.split("@")[1].split(":")[1].split("?")[0], "id": text.split("://")[1].split("@")[0]}
+        protocol = "trojan"
+    else:
+        message.reply_text("❌ Format akun tidak valid!")
         return
 
-    decrypted_file = decrypt_file(file_path, encryption_type)
-    if decrypted_file:
-        await message.answer("✅ File berhasil didekripsi! Mengirim file...")
-        await message.answer_document(FSInputFile(decrypted_file))
-        os.remove(file_path)
-        os.remove(decrypted_file)
+    if config_data:
+        yaml_path = generate_yaml(config_data, f"yinn-clash-{protocol}", protocol)
+
+        client.send_document(
+            chat_id=message.chat.id,
+            document=yaml_path,
+            caption=f"✅ Konfigurasi Clash berhasil dibuat oleh *Yinn Bot*"
+        )
+
+        os.remove(yaml_path)
     else:
-        await message.answer("❌ Gagal mendekripsi file!")
+        message.reply_text("❌ Gagal membaca akun! Pastikan format benar.")
 
-# Help command
-@dp.callback_query(lambda c: c.data == "help")
-async def help_callback(callback_query: types.CallbackQuery):
-    await callback_query.message.answer(
-        "📜 Cara penggunaan:\n"
-        "1. Kirim file `.sh` yang ingin di-decrypt.\n"
-        "2. Bot akan otomatis mendeteksi jenis enkripsi.\n"
-        "3. Jika berhasil, bot akan mengirim file hasil dekripsi.\n\n"
-        "🔧 Format yang didukung: SHC, BashRock, Eval, Base64."
-    )
-
-async def main():
-    await dp.start_polling(bot)
-
-if __name__ == "__main__":
-    os.makedirs("downloads", exist_ok=True)
-    asyncio.run(main())
+bot.run()
