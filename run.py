@@ -24,6 +24,8 @@ def parse_account(link):
             decoded = base64.b64decode(link.split("vmess://")[1] + "==").decode("utf-8")
             vmess_data = json.loads(decoded)
             port = "443" if vmess_data.get("tls", "").lower() == "tls" else "80"
+            # Ambil nama berdasarkan UUID atau server, bisa diubah sesuai kebutuhan
+            name = vmess_data.get("ps", "NoName")  # Jika ada field "ps" di dalam link, gunakan itu sebagai nama
             return {
                 "type": "vmess",
                 "server": vmess_data["add"],
@@ -31,6 +33,7 @@ def parse_account(link):
                 "uuid": vmess_data["id"],
                 "path": vmess_data.get("path", "/"),
                 "servername": vmess_data["add"],
+                "name": name,
             }
         except Exception:
             return None
@@ -49,6 +52,7 @@ def parse_account(link):
                 "uuid": uuid,
                 "path": "/",
                 "servername": server,
+                "name": uuid,  # Bisa ganti dengan nama jika ada
             }
         except Exception:
             return None
@@ -67,6 +71,7 @@ def parse_account(link):
                 "uuid": password,
                 "path": "/",
                 "servername": server,
+                "name": password,  # Bisa ganti dengan nama jika ada
             }
         except Exception:
             return None
@@ -84,9 +89,9 @@ def generate_openclash_config(user_id):
     config = {
         "proxies": [
             {
-                "name": data.get("link_akun"),  
+                "name": parsed_data["name"],  # Ganti dengan nama yang ditemukan di link
                 "server": data.get("bug", parsed_data["server"]),
-                "port": parsed_data["port"],  
+                "port": parsed_data["port"],
                 "type": parsed_data["type"],  # Sesuai jenis akun
                 "uuid": parsed_data["uuid"],
                 "alterId": 0 if parsed_data["type"] == "vmess" else None,
@@ -96,7 +101,7 @@ def generate_openclash_config(user_id):
                 "servername": parsed_data["servername"],
                 "network": "ws",
                 "ws-opts": {
-                    "path": parsed_data["path"],  
+                    "path": parsed_data["path"],
                     "headers": {"Host": parsed_data["servername"]}
                 },
                 "udp": True
