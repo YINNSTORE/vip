@@ -29,7 +29,7 @@ def parse_account(link):
             return {
                 "type": "vmess",
                 "server": vmess_data["add"],
-                "port": port,
+                "port": port,  # Hanya port, tanpa '80' atau '443'
                 "uuid": vmess_data["id"],
                 "path": vmess_data.get("path", "/"),
                 "servername": vmess_data["add"],
@@ -48,7 +48,7 @@ def parse_account(link):
             return {
                 "type": "vless",
                 "server": server,
-                "port": port,
+                "port": port,  # Hanya port, tanpa '80' atau '443'
                 "uuid": uuid,
                 "path": "/",
                 "servername": server,
@@ -67,7 +67,7 @@ def parse_account(link):
             return {
                 "type": "trojan",
                 "server": server,
-                "port": port,
+                "port": port,  # Hanya port, tanpa '80' atau '443'
                 "uuid": password,
                 "path": "/",
                 "servername": server,
@@ -91,7 +91,7 @@ def generate_openclash_config(user_id):
             {
                 "name": parsed_data["name"],  # Ganti dengan nama yang ditemukan di link
                 "server": data.get("bug", parsed_data["server"]),
-                "port": parsed_data["port"],
+                "port": parsed_data["port"],  # Hanya port, tanpa '80' atau '443'
                 "type": parsed_data["type"],  # Sesuai jenis akun
                 "uuid": parsed_data["uuid"],
                 "alterId": 0 if parsed_data["type"] == "vmess" else None,
