@@ -9,8 +9,8 @@ DIGITALOCEAN_API_TOKEN="apikey_digitalocean_punyalu"
 API_BASE_URL="https://api.digitalocean.com/v2"
 
 # Konfigurasi Bot Telegram (Ganti Sama Bot Lu)
-TELEGRAM_BOT_TOKEN="7667938486:AAGf1jtnAj__TwNUQhm7nzzncFyD0zw92vg"
-TELEGRAM_CHAT_ID="6353421952"
+TELEGRAM_BOT_TOKEN="isi token bot ente"
+TELEGRAM_CHAT_ID="isi id ente"
 
 clear
 
