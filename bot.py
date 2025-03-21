@@ -134,11 +134,11 @@ def send_welcome(message):
         InlineKeyboardButton("🧿 𝗚𝗘𝗡𝗘𝗥𝗔𝗧𝗘 𝗖𝗢𝗡𝗙𝗜𝗚", callback_data="generate_config"),
         InlineKeyboardButton("🖥️ 𝗥𝗨𝗡𝗡𝗜𝗡𝗚 𝗕𝗢𝗧", callback_data="running_bot")
     )
-    
+
     # Jika pengakses adalah admin, tambahkan tombol Riwayat Akses
     if message.chat.id == ADMIN_ID:
         markup.add(InlineKeyboardButton("🖥️ 𝗥𝗜𝗪𝗔𝗬𝗔𝗧 𝗔𝗞𝗦𝗘𝗦", callback_data="access_history"))
-    
+
     bot.send_message(message.chat.id, "🚩 Selamat datang di bot auto konfigurasi OpenClash STB OpenWRT By 👤@yinnprovpn", reply_markup=markup)
 
 # Handler tombol menu
@@ -167,12 +167,18 @@ def callback_handler(call):
             bot.send_message(user_id, "Gagal membuat config. Pastikan semua data sudah diinput dengan benar.")
     elif call.data == "access_history" and user_id == ADMIN_ID:
         if access_history:
-            history_text = "🧿 Riwayat Akses:\n"
+            history_text = "🧿 **Riwayat Akses Pengguna**:\n"
+            history_text += "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
             for entry in access_history:
-                history_text += f"🧑‍💻 ID: {entry['id']}, Username: {entry['username']}, Tanggal: {entry['date']}\n"
+                history_text += (
+                    f"🧑‍💻 **ID Pengguna**: `{entry['id']}`\n"
+                    f"👤 **Username**: {entry['username']}\n"
+                    f"📅 **Tanggal Akses**: {entry['date']}\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                )
             bot.send_message(user_id, history_text)
         else:
-            bot.send_message(user_id, "Belum ada akses yang tercatat.")
+            bot.send_message(user_id, "📉 **Belum ada akses yang tercatat.**")
 
 # Fungsi menerima input link akun
 def receive_link(message):
