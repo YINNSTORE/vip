@@ -6,9 +6,9 @@ import requests
 import pytz
 from datetime import datetime
 from aiogram import Bot, Dispatcher, types
+from aiogram.client.default import DefaultBotProperties
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
-from aiogram.utils.markdown import bold
 
 # **🔹 API Key**
 BOT_TOKEN = "7667938486:AAGf1jtnAj__TwNUQhm7nzzncFyD0zw92vg"
@@ -17,23 +17,25 @@ OPENAI_API_KEY = ""
 # **🔹 ID Admin Awal**
 ADMIN_IDS = {6353421952}  # Ganti dengan ID Admin pertama
 
-# Inisialisasi bot & OpenAI
-bot = Bot(token=BOT_TOKEN, parse_mode="Markdown")
+# **🔹 Inisialisasi bot & OpenAI**
+bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode="Markdown"))
 dp = Dispatcher()
 
 openai.api_key = OPENAI_API_KEY
 user_memory = {}  # Simpan percakapan per user
 
 # **🔹 Keyboard Menu**
-menu = InlineKeyboardMarkup()
-menu.add(InlineKeyboardButton("💬 Chat AI", callback_data="chat_ai"))
-menu.add(InlineKeyboardButton("🌎 Translate", callback_data="translate"))
-menu.add(InlineKeyboardButton("📖 Quotes", callback_data="quotes"))
-menu.add(InlineKeyboardButton("🕒 Waktu Dunia", callback_data="waktu_dunia"))
+menu = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton("💬 Chat AI", callback_data="chat_ai")],
+    [InlineKeyboardButton("🌎 Translate", callback_data="translate")],
+    [InlineKeyboardButton("📖 Quotes", callback_data="quotes")],
+    [InlineKeyboardButton("🕒 Waktu Dunia", callback_data="waktu_dunia")]
+])
 
-premium_menu = InlineKeyboardMarkup()
-premium_menu.add(InlineKeyboardButton("🎨 Buat Gambar", callback_data="generate_image"))
-premium_menu.add(InlineKeyboardButton("➕ Add Admin", callback_data="add_admin"))
+premium_menu = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton("🎨 Buat Gambar", callback_data="generate_image")],
+    [InlineKeyboardButton("➕ Add Admin", callback_data="add_admin")]
+])
 
 # **🔹 Menu Utama**
 @dp.message(Command("start"))
@@ -48,10 +50,8 @@ async def start(message: types.Message):
         "📌 Gunakan tombol di bawah untuk fitur tambahan.\n"
         "━━━━━━━━━━━━━━━━━━━━━"
     )
-    if user_id in ADMIN_IDS:
-        await message.answer(text, reply_markup=premium_menu)
-    else:
-        await message.answer(text, reply_markup=menu)
+    keyboard = premium_menu if user_id in ADMIN_IDS else menu
+    await message.answer(text, reply_markup=keyboard)
 
 # **🔹 Chat AI (Fast Response)**
 async def chat_ai(user_id, prompt):
@@ -59,7 +59,7 @@ async def chat_ai(user_id, prompt):
         user_memory[user_id] = []
 
     user_memory[user_id].append({"role": "user", "content": prompt})
-    
+
     response = await asyncio.to_thread(openai.ChatCompletion.create,
         model="gpt-4-turbo",
         messages=user_memory[user_id]
@@ -76,7 +76,7 @@ async def handle_chat(message: types.Message):
     await message.answer(response)
 
 # **🔹 Translate**
-@dp.callback_query_handler(lambda c: c.data == "translate")
+@dp.callback_query(lambda c: c.data == "translate")
 async def ask_translate(callback_query: types.CallbackQuery):
     await bot.send_message(callback_query.from_user.id, "🌍 Ketik teks yang ingin diterjemahkan ke Inggris!")
 
@@ -87,13 +87,13 @@ async def handle_translate(message: types.Message):
     await message.reply(f"🔠 Terjemahan: {translation}")
 
 # **🔹 Quotes AI**
-@dp.callback_query_handler(lambda c: c.data == "quotes")
+@dp.callback_query(lambda c: c.data == "quotes")
 async def handle_quotes(callback_query: types.CallbackQuery):
     quote = await chat_ai(callback_query.from_user.id, "Beri saya satu quotes motivasi.")
     await bot.send_message(callback_query.from_user.id, f"📖 {quote}")
 
 # **🔹 Waktu Dunia**
-@dp.callback_query_handler(lambda c: c.data == "waktu_dunia")
+@dp.callback_query(lambda c: c.data == "waktu_dunia")
 async def ask_waktu(callback_query: types.CallbackQuery):
     await bot.send_message(callback_query.from_user.id, "⏳ Ketik nama negara untuk cek waktu!")
 
@@ -105,7 +105,7 @@ async def handle_waktu(message: types.Message):
     await message.reply(f"🕒 Waktu di {country}: {now}")
 
 # **🔹 Add Admin**
-@dp.callback_query_handler(lambda c: c.data == "add_admin")
+@dp.callback_query(lambda c: c.data == "add_admin")
 async def ask_add_admin(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
     if user_id not in ADMIN_IDS:
