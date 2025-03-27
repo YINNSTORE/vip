@@ -1,124 +1,138 @@
 import os
-import json
+import asyncio
+import requests
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# 🔹 API Telegram Bot & Admin ID
+API_ID = 21635979  
+API_HASH = "cbc12884284bc3457360ca9b9d37b94e"
+BOT_TOKEN = "7667938486:AAGf1jtnAj__TwNUQhm7nzzncFyD0zw92vg"
+ADMIN_ID = "6353421952"  # Ganti dengan ID admin
 
-API_ID = os.getenv("API_ID")
-API_HASH = os.getenv("API_HASH")
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+bot = Client("app_builder_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
-ADMIN_IDS = [6353421952]
-USER_DB = "users.json"
+# 🔹 Fungsi Kirim Notifikasi ke Telegram Admin
+def notify_admin(message):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    data = {"chat_id": ADMIN_ID, "text": message}
+    requests.post(url, data=data)
 
-def load_json(file):
-    try:
-        with open(file, "r") as f:
-            return json.load(f)
-    except:
-        return {}
+# 🔹 Fungsi Cek Dependensi Buildozer
+def check_dependencies():
+    dependencies = ["buildozer", "python3", "pip", "git"]
+    missing = [pkg for pkg in dependencies if os.system(f"command -v {pkg} > /dev/null 2>&1") != 0]
+    
+    if missing:
+        return f"❌ Dependensi belum terinstall: {', '.join(missing)}\nHarap install dengan:\n`apt install -y {' '.join(missing)}`"
+    return None
 
-def save_json(file, data):
-    with open(file, "w") as f:
-        json.dump(data, f, indent=4)
+# 🔹 Saat user /start, tampilkan menu pilihan
+@bot.on_message(filters.private & filters.command("start"))
+def start(client, message):
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🛠 Buat Aplikasi", callback_data="buat_aplikasi")],
+        [InlineKeyboardButton("🎮 Buat Game", callback_data="buat_game")]
+    ])
+    message.reply_text("🚀 Pilih jenis yang ingin dibuat:", reply_markup=keyboard)
 
-users = load_json(USER_DB)
+# 🔹 Menangani tombol yang ditekan user
+@bot.on_callback_query()
+def callback_handler(client, callback_query):
+    if callback_query.data == "buat_aplikasi":
+        callback_query.message.reply_text("✍️ Kirim nama aplikasi yang ingin dibuat:")
+    elif callback_query.data == "buat_game":
+        callback_query.message.reply_text("✍️ Kirim nama game yang ingin dibuat:")
 
-bot = Client("otp_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+# 🔹 Proses pembuatan aplikasi/game setelah user kirim nama
+@bot.on_message(filters.private & filters.text)
+async def create_app(client, message):
+    app_name = message.text.replace(" ", "_")
+    chat_id = message.chat.id
+    user_id = message.from_user.id
 
-@bot.on_message(filters.private)
-def menu(client, message):
-    user_id = str(message.from_user.id)
-
-    if user_id not in users.get("users", {}):
-        users["users"][user_id] = {"approved": False}
-        save_json(USER_DB, users)
-
-        # Notifikasi ke Admin
-        for admin_id in ADMIN_IDS:
-            client.send_message(admin_id, f"🔔 *User Baru Masuk!*\n👤 @{message.from_user.username}\n🆔 ID: `{user_id}`", parse_mode="markdown")
-
-    if not users["users"][user_id]["approved"]:
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("✅ Terima", callback_data=f"approve_{user_id}"), InlineKeyboardButton("❌ Tolak", callback_data=f"reject_{user_id}")]
-        ])
-        message.reply_text("❌ Kamu belum di-approve oleh admin.", reply_markup=keyboard)
+    # 🔹 Cek dependensi sebelum build
+    missing_packages = check_dependencies()
+    if missing_packages:
+        await bot.send_message(chat_id, missing_packages)
         return
 
-    keyboard_buttons = [
-        [InlineKeyboardButton("📲 Get OTP", callback_data="get_otp")],
-        [InlineKeyboardButton("📜 Riwayat OTP", callback_data="history")],
-        [InlineKeyboardButton("🔙 Bantuan", callback_data="help")]
-    ]
+    # 🔹 Buat folder aplikasi
+    app_dir = f"/tmp/{app_name}"
+    os.makedirs(app_dir, exist_ok=True)
 
-    if int(user_id) in ADMIN_IDS:
-        keyboard_buttons.append([InlineKeyboardButton("🛠️ Panel Admin", callback_data="admin_panel")])
+    # 🔹 Buat file main.py (kode aplikasi/game)
+    main_py = f"""
+from kivy.app import App
+from kivy.uix.button import Button
 
-    keyboard = InlineKeyboardMarkup(keyboard_buttons)
-    message.reply_text("🔹 Pilih menu di bawah:", reply_markup=keyboard)
+class MyApp(App):
+    def build(self):
+        return Button(text="Hello, {app_name}!", size_hint=(0.5, 0.5), pos_hint={{"center_x": 0.5, "center_y": 0.5}})
 
-@bot.on_callback_query(filters.regex("^admin_panel$"))
-def admin_panel(client, callback_query):
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("➕ Add Member", callback_data="add_member")],
-        [InlineKeyboardButton("📢 Pengumuman", callback_data="announcement")],
-        [InlineKeyboardButton("🔙 Kembali", callback_data="menu")]
-    ])
-    callback_query.message.edit_text("🛠️ *Admin Panel*", reply_markup=keyboard, parse_mode="markdown")
+MyApp().run()
+"""
+    with open(f"{app_dir}/main.py", "w") as f:
+        f.write(main_py)
 
-@bot.on_callback_query(filters.regex("^approve_"))
-def approve_user(client, callback_query):
-    user_id = callback_query.data.split("_")[1]
-    users["users"][user_id]["approved"] = True
-    save_json(USER_DB, users)
+    await bot.send_message(chat_id, f"📦 Membuat aplikasi '{app_name}'...")
 
-    client.send_message(user_id, "✅ *Selamat! Kamu sudah di-approve oleh admin.*", parse_mode="markdown")
-    callback_query.message.edit_text(f"✅ User `{user_id}` berhasil di-approve!", parse_mode="markdown")
+    # 🔹 Buat file buildozer.spec (config untuk Buildozer)
+    buildozer_spec = f"""
+[app]
+title = {app_name}
+package.name = {app_name.lower()}
+package.domain = org.example
+source.include_exts = py,png,jpg,kv,atlas
+requirements = python3,kivy
+android.api = 29
+android.ndk_api = 21
+android.arch = arm64-v8a
+"""
+    with open(f"{app_dir}/buildozer.spec", "w") as f:
+        f.write(buildozer_spec)
 
-@bot.on_callback_query(filters.regex("^reject_"))
-def reject_user(client, callback_query):
-    user_id = callback_query.data.split("_")[1]
-    users["users"].pop(user_id, None)
-    save_json(USER_DB, users)
+    await bot.send_message(chat_id, "⚙️ Mulai proses build APK... (Ini bisa memakan waktu lama)")
 
-    client.send_message(user_id, "❌ *Maaf, permintaanmu ditolak.*", parse_mode="markdown")
-    callback_query.message.edit_text(f"❌ User `{user_id}` telah ditolak!", parse_mode="markdown")
+    # 🔹 Jalankan Buildozer untuk compile APK
+    build_command = f"cd {app_dir} && buildozer -v android debug"
+    process = await asyncio.create_subprocess_shell(build_command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
 
-@bot.on_callback_query(filters.regex("^add_member$"))
-def add_member(client, callback_query):
-    callback_query.message.edit_text("ℹ️ Kirim ID Telegram user yang ingin ditambahkan.")
-    users["waiting_for_id"] = True
-    save_json(USER_DB, users)
+    progress_msg = await bot.send_message(chat_id, "⏳ Progress: 0%")
+    progress = 0
 
-@bot.on_message(filters.private & filters.text)
-def handle_admin_input(client, message):
-    if users.get("waiting_for_id"):
-        user_id = message.text.strip()
-        users["users"][user_id] = {"approved": True}
-        save_json(USER_DB, users)
+    while True:
+        line = await process.stdout.readline()
+        if not line:
+            break
+        output = line.decode().strip()
 
-        message.reply_text(f"✅ User `{user_id}` telah ditambahkan!")
-        users.pop("waiting_for_id", None)
-        save_json(USER_DB, users)
+        # 🔹 Update progress berdasarkan output Buildozer
+        if "Check configuration tokens" in output:
+            progress = 10
+        elif "Preparing build" in output:
+            progress = 20
+        elif "Compiling source" in output:
+            progress = 50
+        elif "Packaging" in output:
+            progress = 80
+        elif "BUILD SUCCESSFUL" in output:
+            progress = 100
 
-@bot.on_callback_query(filters.regex("^announcement$"))
-def send_announcement(client, callback_query):
-    callback_query.message.edit_text("ℹ️ Kirim pengumuman yang ingin dikirim ke semua user.")
-    users["waiting_for_announcement"] = True
-    save_json(USER_DB, users)
+        await progress_msg.edit_text(f"⏳ Progress: {progress}%")
 
-@bot.on_message(filters.private & filters.text)
-def handle_announcement(client, message):
-    if users.get("waiting_for_announcement"):
-        text = message.text
-        for user_id in users["users"].keys():
-            client.send_message(user_id, f"📢 *Pengumuman:*\n{text}", parse_mode="markdown")
+    stdout, stderr = await process.communicate()
 
-        message.reply_text("✅ Pengumuman berhasil dikirim!")
-        users.pop("waiting_for_announcement", None)
-        save_json(USER_DB, users)
+    if process.returncode == 0:
+        apk_path = f"{app_dir}/bin/{app_name}.apk"
+        if os.path.exists(apk_path):
+            await bot.send_document(chat_id, apk_path, caption="✅ Aplikasi berhasil dibuat!")
+            notify_admin(f"📱 APK '{app_name}' telah dibuat oleh user {user_id}!")
+        else:
+            await bot.send_message(chat_id, "❌ Gagal membuat APK.")
+            notify_admin(f"⚠️ Gagal membuat APK untuk {app_name} oleh user {user_id}.")
+    else:
+        await bot.send_message(chat_id, f"❌ Terjadi kesalahan saat build APK:\n{stderr.decode()}")
+        notify_admin(f"⚠️ ERROR Build APK {app_name} oleh user {user_id}.\n{stderr.decode()}")
 
 bot.run()
