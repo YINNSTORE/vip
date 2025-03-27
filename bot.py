@@ -20,7 +20,7 @@ API_ID = os.getenv("API_ID")
 API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-ADMIN_IDS = [6353421952]
+ADMIN_IDS = [6353421952]  # Ganti dengan ID Admin
 USER_DB = "users.json"
 OTP_HISTORY = "otp_history.json"
 
@@ -31,9 +31,6 @@ OTP_SITES = [
     "https://freephonenum.com/",
     "https://textnow.com/"
 ]
-
-PROXY_LIST = ["http://proxy1.com:8080", "http://proxy2.com:8080"]
-PROXY_API = "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http"
 
 def load_json(file):
     try:
@@ -52,35 +49,28 @@ otp_history = load_json(OTP_HISTORY)
 def is_whitelisted(user_id):
     return str(user_id) in users.get("users", {}) and users["users"][str(user_id)].get("approved", False)
 
-def get_proxy():
-    try:
-        response = requests.get(PROXY_API)
-        proxy_list = response.text.split("\n")
-        return random.choice(proxy_list).strip()
-    except:
-        return random.choice(PROXY_LIST)
-
-def setup_selenium():
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--remote-debugging-port=9222")
-
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
-    return driver
-
 bot = Client("otp_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
 @bot.on_message(filters.private)
 def menu(client, message):
     user_id = str(message.from_user.id)
+    username = message.from_user.username or "Tidak ada username"
 
     # Jika user belum terdaftar, tambahkan ke database
     if user_id not in users.get("users", {}):
-        users["users"][user_id] = {"approved": user_id in map(str, ADMIN_IDS), "otp_limit": 0}
+        users["users"][user_id] = {"username": username, "approved": False, "otp_limit": 0}
         save_json(USER_DB, users)
+
+        # Kirim notifikasi ke admin untuk approve
+        for admin_id in ADMIN_IDS:
+            bot.send_message(admin_id, 
+                f"🔔 *User Baru Masuk!*\n\n👤 *Username:* @{username}\n🆔 *ID:* `{user_id}`\n\n➖➖➖➖➖\n"
+                "👉 Pilih aksi:",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("✅ Terima", callback_data=f"approve_{user_id}")],
+                    [InlineKeyboardButton("❌ Tolak", callback_data=f"reject_{user_id}")]
+                ])
+            ))
 
     # Jika user belum di-approve, tolak akses
     if not users["users"][user_id]["approved"]:
@@ -91,14 +81,74 @@ def menu(client, message):
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("📲 Dapatkan OTP", callback_data="get_otp")],
         [InlineKeyboardButton("📜 Riwayat OTP", callback_data="history")],
-        [InlineKeyboardButton("🔍 Cari Nomor Berdasarkan Negara", callback_data="search_country")],
-        [InlineKeyboardButton("🔙 Bantuan", callback_data="help")]
+        [InlineKeyboardButton("🔍 Cari Nomor", callback_data="search_country")],
+        [InlineKeyboardButton("❓ Bantuan", callback_data="help")]
     ])
 
     if int(user_id) in ADMIN_IDS:
         keyboard.inline_keyboard.append([InlineKeyboardButton("🛠️ Panel Admin", callback_data="admin_panel")])
 
     message.reply_text("🔹 Pilih menu di bawah:", reply_markup=keyboard)
+
+
+@bot.on_callback_query(filters.regex("^approve_"))
+def approve_user(client, callback_query):
+    user_id = callback_query.data.split("_")[1]
+    users["users"][user_id]["approved"] = True
+    save_json(USER_DB, users)
+
+    bot.send_message(user_id, "✅ Kamu telah disetujui oleh admin! Selamat menggunakan bot.")
+    callback_query.message.edit_text(f"✅ User {user_id} telah diterima!")
+
+
+@bot.on_callback_query(filters.regex("^reject_"))
+def reject_user(client, callback_query):
+    user_id = callback_query.data.split("_")[1]
+    users["users"].pop(user_id, None)
+    save_json(USER_DB, users)
+
+    bot.send_message(user_id, "❌ Maaf, permintaan kamu telah ditolak oleh admin.")
+    callback_query.message.edit_text(f"❌ User {user_id} telah ditolak.")
+
+
+@bot.on_callback_query(filters.regex("admin_panel"))
+def admin_panel(client, callback_query):
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("➕ Add Member", callback_data="add_member")],
+        [InlineKeyboardButton("📢 Pengumuman", callback_data="send_announcement")],
+        [InlineKeyboardButton("🔙 Kembali", callback_data="back")]
+    ])
+    callback_query.message.edit_text("🛠️ *Panel Admin*", reply_markup=keyboard)
+
+
+@bot.on_callback_query(filters.regex("add_member"))
+def add_member(client, callback_query):
+    callback_query.message.edit_text("❗ Kirimkan ID Telegram user yang ingin diapprove.")
+
+    @bot.on_message(filters.private & filters.user(ADMIN_IDS))
+    def receive_user_id(client, message):
+        user_id = message.text.strip()
+        if user_id in users["users"]:
+            users["users"][user_id]["approved"] = True
+            save_json(USER_DB, users)
+            message.reply_text(f"✅ User {user_id} telah ditambahkan!")
+        else:
+            message.reply_text("❌ User tidak ditemukan!")
+
+
+@bot.on_callback_query(filters.regex("send_announcement"))
+def announcement_menu(client, callback_query):
+    callback_query.message.edit_text("❗ Kirim pengumuman yang ingin dikirim ke semua user.")
+
+    @bot.on_message(filters.private & filters.user(ADMIN_IDS))
+    def send_announcement(client, message):
+        text = message.text or "📢 Pengumuman dari Admin!"
+        for user_id in users["users"]:
+            try:
+                bot.send_message(user_id, text)
+            except:
+                pass
+        message.reply_text("✅ Pengumuman berhasil dikirim ke semua user!")
 
 
 @bot.on_callback_query(filters.regex("get_otp"))
@@ -110,16 +160,13 @@ def get_otp(client, callback_query):
         return
 
     otp_site = random.choice(OTP_SITES)
-    proxy = get_proxy()
 
     try:
-        driver = setup_selenium()
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
         driver.get(otp_site)
         time.sleep(5)
 
-        page_source = driver.page_source
-        soup = BeautifulSoup(page_source, "html.parser")
-
+        soup = BeautifulSoup(driver.page_source, "html.parser")
         numbers = soup.find_all("a", class_="numbox")
 
         if numbers:
@@ -132,20 +179,11 @@ def get_otp(client, callback_query):
                 driver.get(f"{otp_site}{otp_page}")
                 time.sleep(5)
 
-                page_source = driver.page_source
-                otp_soup = BeautifulSoup(page_source, "html.parser")
+                otp_soup = BeautifulSoup(driver.page_source, "html.parser")
                 otp_messages = otp_soup.find_all("td", class_="message")
 
                 if otp_messages:
                     otp_code = otp_messages[0].text.strip()
-
-                    if user_id in users:
-                        users[user_id]["otp_limit"] = users[user_id].get("otp_limit", 0) + 1
-
-                    otp_history[user_id] = otp_history.get(user_id, []) + [otp_code]
-                    save_json(USER_DB, users)
-                    save_json(OTP_HISTORY, otp_history)
-
                     driver.quit()
                     callback_query.message.edit_text(f"✅ OTP: `{otp_code}`")
                     return
@@ -157,62 +195,5 @@ def get_otp(client, callback_query):
             callback_query.message.edit_text("⚠️ Tidak ada nomor yang tersedia.")
     except:
         callback_query.message.edit_text("⚠️ Error saat mengambil nomor. Coba lagi nanti.")
-
-@bot.on_callback_query(filters.regex("history"))
-def history(client, callback_query):
-    user_id = str(callback_query.from_user.id)
-    history_list = otp_history.get(user_id, ["Belum ada OTP yang digunakan"])
-
-    text = "\n".join(history_list[-5:])
-    callback_query.message.edit_text(f"📜 *Riwayat OTP:*\n{text}")
-
-@bot.on_callback_query(filters.regex("help"))
-def help_menu(client, callback_query):
-    callback_query.message.edit_text("""
-📌 *Cara Menggunakan Bot OTP*
-1️⃣ Klik tombol *Dapatkan OTP* untuk menerima nomor virtual.
-2️⃣ Tunggu hingga nomor tersedia.
-3️⃣ Bot akan otomatis mengambil OTP tanpa harus klik tombol.
-4️⃣ Jika ingin melihat riwayat OTP yang pernah digunakan, tekan *Riwayat OTP*.
-""")
-
-# **🔴 Fitur Auto-Semat Pesan 🔴**
-@bot.on_message(filters.private)
-def auto_pin_message(client, message):
-    chat_id = message.chat.id
-
-    if message.reply_to_message:
-        try:
-            client.pin_chat_message(chat_id, message.reply_to_message.id, disable_notification=True)
-        except:
-            pass  
-
-# **🔴 Fitur Pengumuman Admin 🔴**
-@bot.on_message(filters.private & filters.user(ADMIN_IDS))
-def send_announcement(client, message):
-    """Fitur Pengumuman Admin - Bisa kirim teks, foto, stiker, atau dokumen ke semua user"""
-    text = message.text if message.text else "📢 Pengumuman dari Admin!"
-    
-    for user_id in users.keys():
-        try:
-            if message.photo:
-                client.send_photo(user_id, photo=message.photo.file_id, caption=text)
-            elif message.sticker:
-                client.send_sticker(user_id, sticker=message.sticker.file_id)
-            elif message.document:
-                client.send_document(user_id, document=message.document.file_id, caption=text)
-            else:
-                client.send_message(user_id, text)
-        except:
-            pass  
-
-    message.reply_text("✅ Pengumuman berhasil dikirim ke semua user!")
-
-def reset_daily_limit():
-    for user in users:
-        users[user]["otp_limit"] = 0
-    save_json(USER_DB, users)
-
-schedule.every().day.at("00:00").do(reset_daily_limit)
 
 bot.run()
