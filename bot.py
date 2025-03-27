@@ -60,7 +60,7 @@ def menu(client, message):
     keyboard = InlineKeyboardMarkup(keyboard_buttons)
     message.reply_text("🔹 Pilih menu di bawah:", reply_markup=keyboard)
 
-@bot.on_callback_query(filters.callback_data("admin_panel"))
+@bot.on_callback_query(filters.regex("^admin_panel$"))
 def admin_panel(client, callback_query):
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("➕ Add Member", callback_data="add_member")],
@@ -87,7 +87,7 @@ def reject_user(client, callback_query):
     client.send_message(user_id, "❌ *Maaf, permintaanmu ditolak.*", parse_mode="markdown")
     callback_query.message.edit_text(f"❌ User `{user_id}` telah ditolak!", parse_mode="markdown")
 
-@bot.on_callback_query(filters.callback_data("add_member"))
+@bot.on_callback_query(filters.regex("^add_member$"))
 def add_member(client, callback_query):
     callback_query.message.edit_text("ℹ️ Kirim ID Telegram user yang ingin ditambahkan.")
     users["waiting_for_id"] = True
@@ -104,7 +104,7 @@ def handle_admin_input(client, message):
         users.pop("waiting_for_id", None)
         save_json(USER_DB, users)
 
-@bot.on_callback_query(filters.callback_data("announcement"))
+@bot.on_callback_query(filters.regex("^announcement$"))
 def send_announcement(client, callback_query):
     callback_query.message.edit_text("ℹ️ Kirim pengumuman yang ingin dikirim ke semua user.")
     users["waiting_for_announcement"] = True
