@@ -78,12 +78,17 @@ def menu(client, message):
         return
 
     # Tampilkan menu utama
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📲 Dapatkan OTP", callback_data="get_otp")],
-        [InlineKeyboardButton("📜 Riwayat OTP", callback_data="history")],
-        [InlineKeyboardButton("🔍 Cari Nomor", callback_data="search_country")],
-        [InlineKeyboardButton("❓ Bantuan", callback_data="help")]
-    ])
+    keyboard_buttons = [
+    [InlineKeyboardButton("📲 Dapatkan OTP", callback_data="get_otp")],
+    [InlineKeyboardButton("📜 Riwayat OTP", callback_data="history")],
+    [InlineKeyboardButton("🔍 Cari Nomor Berdasarkan Negara", callback_data="search_country")],
+    [InlineKeyboardButton("🔙 Bantuan", callback_data="help")]
+]
+
+if int(user_id) in ADMIN_IDS:
+    keyboard_buttons.append([InlineKeyboardButton("🛠️ Panel Admin", callback_data="admin_panel")])
+
+keyboard = InlineKeyboardMarkup(keyboard_buttons)
 
     if int(user_id) in ADMIN_IDS:
         keyboard.inline_keyboard.append([InlineKeyboardButton("🛠️ Panel Admin", callback_data="admin_panel")])
