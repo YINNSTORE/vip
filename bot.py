@@ -16,9 +16,9 @@ from webdriver_manager.chrome import ChromeDriverManager
 # Load environment variables
 load_dotenv()
 
-API_ID = os.getenv("21635979")
-API_HASH = os.getenv("cbc12884284bc3457360ca9b9d37b94e")
-BOT_TOKEN = os.getenv("7667938486:AAGf1jtnAj__TwNUQhm7nzzncFyD0zw92vg")
+API_ID = os.getenv("API_ID")
+API_HASH = os.getenv("API_HASH")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 ADMIN_IDS = [6353421952]
 USER_DB = "users.json"
@@ -50,7 +50,7 @@ users = load_json(USER_DB)
 otp_history = load_json(OTP_HISTORY)
 
 def is_whitelisted(user_id):
-    return str(user_id) in users
+    return str(user_id) in users.get("users", {}) and users["users"][str(user_id)].get("approved", False)
 
 def get_proxy():
     try:
@@ -77,10 +77,17 @@ bot = Client("otp_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 def menu(client, message):
     user_id = str(message.from_user.id)
 
-    if not is_whitelisted(user_id):
+    # Jika user belum terdaftar, tambahkan ke database
+    if user_id not in users.get("users", {}):
+        users["users"][user_id] = {"approved": user_id in map(str, ADMIN_IDS), "otp_limit": 0}
+        save_json(USER_DB, users)
+
+    # Jika user belum di-approve, tolak akses
+    if not users["users"][user_id]["approved"]:
         message.reply_text("❌ Kamu belum di-approve oleh admin. Tunggu persetujuan!")
         return
 
+    # Tampilkan menu utama
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("📲 Dapatkan OTP", callback_data="get_otp")],
         [InlineKeyboardButton("📜 Riwayat OTP", callback_data="history")],
@@ -92,6 +99,7 @@ def menu(client, message):
         keyboard.inline_keyboard.append([InlineKeyboardButton("🛠️ Panel Admin", callback_data="admin_panel")])
 
     message.reply_text("🔹 Pilih menu di bawah:", reply_markup=keyboard)
+
 
 @bot.on_callback_query(filters.regex("get_otp"))
 def get_otp(client, callback_query):
