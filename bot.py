@@ -1,5 +1,6 @@
 from telegram import Bot, Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler
+from telegram import InputMediaPhoto, InputMediaVideo
 import random
 import time
 import logging
@@ -165,6 +166,40 @@ def main():
         dispatcher.add_handler(CallbackQueryHandler(button_callback))
         dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, process_location_input))
         dispatcher.add_handler(CommandHandler("cancel", cancel))
+
+
+# Fungsi untuk mengirim pengumuman
+def send_announcement(update: Update, context: CallbackContext):
+    user_id = update.message.from_user.id
+    if str(user_id) not in ADMIN_IDS:
+        update.message.reply_text("❌ Anda bukan admin!")
+        return
+
+    update.message.reply_text("📢 Kirim pengumuman dalam format:\n\n- Teks biasa\n- Gambar\n- Video\n- Stiker")
+
+def handle_announcement(update: Update, context: CallbackContext):
+    user_id = update.message.from_user.id
+    if str(user_id) not in ADMIN_IDS:
+        return
+
+    if update.message.text:
+        context.bot.send_message(chat_id=update.effective_chat.id, text=f"📢 *PENGUMUMAN:*\n\n{update.message.text}", parse_mode="Markdown")
+    elif update.message.photo:
+        photo_id = update.message.photo[-1].file_id
+        context.bot.send_photo(chat_id=update.effective_chat.id, photo=photo_id, caption="📢 *PENGUMUMAN*", parse_mode="Markdown")
+    elif update.message.video:
+        video_id = update.message.video.file_id
+        context.bot.send_video(chat_id=update.effective_chat.id, video=video_id, caption="📢 *PENGUMUMAN*", parse_mode="Markdown")
+    elif update.message.sticker:
+        sticker_id = update.message.sticker.file_id
+        context.bot.send_sticker(chat_id=update.effective_chat.id, sticker=sticker_id)
+    else:
+        update.message.reply_text("❌ Format tidak didukung!")
+
+# Menambahkan handler ke dispatcher
+dispatcher.add_handler(CommandHandler("pengumuman", send_announcement))
+dispatcher.add_handler(MessageHandler(Filters.text | Filters.photo | Filters.video | Filters.sticker, handle_announcement))
+
 
         # Handle error
         dispatcher.add_error_handler(error)
