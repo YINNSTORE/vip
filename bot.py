@@ -14,16 +14,31 @@ user_data = {}
 
 # Fungsi untuk mengirim pesan dengan tombol
 def send_welcome(message):
+    user_id = message.chat.id
     markup = InlineKeyboardMarkup()
-    markup.add(
-        InlineKeyboardButton("🎁 Trial VIP 3 Hari", callback_data="trial_vip"),
-        InlineKeyboardButton("📂 My APK", callback_data="my_apk"),
-        InlineKeyboardButton("🔄 Modifikasi APK", callback_data="modifikasi_apk"),
-        InlineKeyboardButton("📖 Panduan", callback_data="panduan"),
-        InlineKeyboardButton("💰 Upgrade ke Premium", callback_data="upgrade_premium"),
-        InlineKeyboardButton("👑 Admin Panel", callback_data="admin_panel")  # Only for admin
-    )
-    bot.send_message(message.chat.id, "Selamat datang di Bot Modifikasi APK 🔥\nPilih menu di bawah untuk mulai.", reply_markup=markup)
+
+    # Menu Admin
+    if is_admin(user_id):
+        markup.add(
+            InlineKeyboardButton("🎁 Trial VIP 3 Hari", callback_data="trial_vip"),
+            InlineKeyboardButton("📂 My APK", callback_data="my_apk"),
+            InlineKeyboardButton("🔄 Modifikasi APK", callback_data="modifikasi_apk"),
+            InlineKeyboardButton("📖 Panduan", callback_data="panduan"),
+            InlineKeyboardButton("💰 Upgrade ke Premium", callback_data="upgrade_premium"),
+            InlineKeyboardButton("👑 Admin Panel", callback_data="admin_panel")  # Only for admin
+        )
+        bot.send_message(user_id, "Selamat datang di Bot Modifikasi APK 🔥\nPilih menu admin di bawah:", reply_markup=markup)
+    
+    # Menu Member
+    else:
+        markup.add(
+            InlineKeyboardButton("🎁 Trial VIP 3 Hari", callback_data="trial_vip"),
+            InlineKeyboardButton("📂 My APK", callback_data="my_apk"),
+            InlineKeyboardButton("🔄 Modifikasi APK", callback_data="modifikasi_apk"),
+            InlineKeyboardButton("📖 Panduan", callback_data="panduan"),
+            InlineKeyboardButton("💰 Upgrade ke Premium", callback_data="upgrade_premium")
+        )
+        bot.send_message(user_id, "Selamat datang di Bot Modifikasi APK 🔥\nPilih menu di bawah untuk mulai.", reply_markup=markup)
 
 # Fungsi untuk mengelola trial
 def check_trial(user_id):
