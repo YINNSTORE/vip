@@ -1,125 +1,117 @@
-from telegram import Bot, Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackContext, MessageHandler, filters, ConversationHandler, CallbackQueryHandler
-import requests
-import json
-import time
+import telebot
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+import datetime
+import random
+import string
 
-# Konfigurasi Bot
-TOKEN = "8024500353:AAHg3XnAcWpyow0JdR_3Xz0Z1DGZUE"
-ADMIN_IDS = {6353421952}
-bot = Bot(token=TOKEN)
-application = Application.builder().token(TOKEN).build()
+# Bot Token dan ID Admin
+API_TOKEN = '8024500353:AAHg3SUbXKN6AcWpyow0JdR_3Xz0Z1DGZUE'
+ADMIN_ID = '6353421952'  # Ganti dengan ID Telegram admin kamu
+bot = telebot.TeleBot(API_TOKEN)
 
-# Database Sederhana
-blocked_users = {}
-user_logs = []
-TRACK_PHONE = range(1)
+# Database untuk tracking user dan trial
+user_data = {}
 
-def save_log(user_id, username, action):
-    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-    log_entry = f"[{timestamp}] ID: {user_id} | Username: {username} | Aksi: {action}\n"
-    user_logs.append(log_entry)
-    with open("logs.txt", "a") as log_file:
-        log_file.write(log_entry)
+# Fungsi untuk mengirim pesan dengan tombol
+def send_welcome(message):
+    markup = InlineKeyboardMarkup()
+    markup.add(
+        InlineKeyboardButton("🎁 Trial VIP 3 Hari", callback_data="trial_vip"),
+        InlineKeyboardButton("📂 My APK", callback_data="my_apk"),
+        InlineKeyboardButton("🔄 Modifikasi APK", callback_data="modifikasi_apk"),
+        InlineKeyboardButton("📖 Panduan", callback_data="panduan"),
+        InlineKeyboardButton("💰 Upgrade ke Premium", callback_data="upgrade_premium"),
+        InlineKeyboardButton("👑 Admin Panel", callback_data="admin_panel")  # Only for admin
+    )
+    bot.send_message(message.chat.id, "Selamat datang di Bot Modifikasi APK 🔥\nPilih menu di bawah untuk mulai.", reply_markup=markup)
 
-async def start(update: Update, context: CallbackContext):
-    user = update.message.from_user
-    user_id = user.id
-    username = user.username if user.username else "(Tidak Ada)"
+# Fungsi untuk mengelola trial
+def check_trial(user_id):
+    today = datetime.datetime.now()
+    if user_id not in user_data:
+        user_data[user_id] = {"trial_start": today, "invites": 0}
+    trial_start = user_data[user_id]["trial_start"]
+    trial_end = trial_start + datetime.timedelta(days=3)
 
-    if user_id in blocked_users:
-        await update.message.reply_text("⛔ Anda telah diblokir.")
-        return
+    if today > trial_end:
+        return False  # Trial sudah habis
+    return True  # Trial masih berlaku
 
-    if user_id in ADMIN_IDS:
-        await admin_menu(update, context)
-        return
+# Fungsi untuk mengundang teman
+def generate_referral_link(user_id):
+    unique_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    return f"https://t.me/bangumberacc4bot?start={user_id}_{unique_code}"
 
-    save_log(user_id, username, "User Baru Masuk")
-    keyboard = [[InlineKeyboardButton("📍 Track Lokasi dengan Nomor HP", callback_data='track_location')]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Selamat datang di *Bot Tracking*, klik tombol di bawah untuk tracking lokasi.", parse_mode="Markdown", reply_markup=reply_markup)
+# Fungsi untuk mengecek apakah user adalah admin
+def is_admin(user_id):
+    return user_id == ADMIN_ID
 
-async def button_callback(update: Update, context: CallbackContext):
-    query = update.callback_query
-    await query.answer()
-
-    if query.data == "track_location":
-        await query.message.reply_text("📱 Masukkan nomor HP yang ingin Anda lacak:")
-        return TRACK_PHONE
-    elif query.data == "logs":
-        await logs(update, context)
-    elif query.data == "blocked":
-        await blocked(update, context)
-    elif query.data == "settings":
-        await settings(update, context)
-
-async def process_phone(update: Update, context: CallbackContext):
-    phone_number = update.message.text
-    await update.message.reply_text(f"🔍 Mencari lokasi untuk nomor: {phone_number}...⏳")
-    time.sleep(2)
-    await update.message.reply_text("✅ Lokasi ditemukan! 🌍\n📍 Koordinat: -6.2088, 106.8456\n🏙️ Kota: Jakarta\n🌎 Negara: Indonesia")
-    return ConversationHandler.END
-
-async def cancel(update: Update, context: CallbackContext):
-    await update.message.reply_text("❌ Tracking dibatalkan.")
-    return ConversationHandler.END
-
-async def admin_menu(update: Update, context: CallbackContext):
-    keyboard = [
-        [InlineKeyboardButton("📜 Riwayat Pengguna", callback_data='logs')],
-        [InlineKeyboardButton("🚫 User Diblokir", callback_data='blocked')],
-        [InlineKeyboardButton("⚙️ Pengaturan Bot", callback_data='settings')]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("🔧 *MENU ADMIN* 🔧", parse_mode="Markdown", reply_markup=reply_markup)
-
-async def logs(update: Update, context: CallbackContext):
-    with open("logs.txt", "r") as log_file:
-        logs_content = log_file.read()
-    await update.message.reply_text(f"📜 *Log Pengguna:*\n{logs_content}"[:4096], parse_mode="Markdown")
-
-async def blocked(update: Update, context: CallbackContext):
-    if not blocked_users:
-        await update.message.reply_text("✅ Tidak ada user yang diblokir.")
+# Fungsi Admin Panel
+def admin_panel(user_id):
+    if is_admin(user_id):
+        markup = InlineKeyboardMarkup()
+        markup.add(
+            InlineKeyboardButton("🔧 Manage User", callback_data="manage_user"),
+            InlineKeyboardButton("⚙️ System Settings", callback_data="system_settings")
+        )
+        bot.send_message(user_id, "Selamat datang di Admin Panel! Pilih menu untuk melanjutkan.", reply_markup=markup)
     else:
-        message = "🚫 *User yang Diblokir:*\n" + "\n".join([str(uid) for uid in blocked_users.keys()])
-        await update.message.reply_text(message, parse_mode="Markdown")
+        bot.send_message(user_id, "❌ Kamu tidak memiliki akses ke panel admin!")
 
-async def settings(update: Update, context: CallbackContext):
-    keyboard = [
-        [InlineKeyboardButton("🔄 Reset Bot", callback_data='reset_bot')],
-        [InlineKeyboardButton("📌 Atur Notifikasi", callback_data='set_notifications')]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("⚙️ *Pengaturan Bot*", parse_mode="Markdown", reply_markup=reply_markup)
-
-async def ban_user(update: Update, context: CallbackContext):
-    if update.message.reply_to_message:
-        banned_id = update.message.reply_to_message.from_user.id
-        blocked_users[banned_id] = time.time()
-        await update.message.reply_text(f"🚫 User {banned_id} telah diblokir secara permanen.")
-
-async def unblock_user(update: Update, context: CallbackContext):
-    user_id = int(update.message.text.split()[-1])
-    if user_id in blocked_users:
-        del blocked_users[user_id]
-        await update.message.reply_text(f"✅ User {user_id} telah di-unblock.")
+# Fungsi untuk menangani trial dan referral
+@bot.callback_query_handler(func=lambda call: call.data == "trial_vip")
+def handle_trial_vip(call):
+    user_id = call.message.chat.id
+    trial_status = check_trial(user_id)
+    
+    if trial_status:
+        bot.send_message(user_id, "🎉 Kamu sudah mendapatkan Trial VIP 3 Hari!\nNikmati fitur premium yang tersedia!")
     else:
-        await update.message.reply_text("⚠️ User tidak ditemukan dalam daftar blokir.")
+        bot.send_message(user_id, "❌ Trial VIP 3 Hari kamu sudah habis.\nSilakan undang teman untuk mendapatkan trial baru!")
+        # Kirimkan link referral
+        referral_link = generate_referral_link(user_id)
+        bot.send_message(user_id, f"Undang teman menggunakan link ini untuk mendapatkan trial VIP:\n{referral_link}")
 
-application.add_handler(CommandHandler("start", start))
-application.add_handler(CommandHandler("admin", admin_menu))
-application.add_handler(CommandHandler("logs", logs))
-application.add_handler(CommandHandler("blocked", blocked))
-application.add_handler(CommandHandler("settings", settings))
-application.add_handler(CommandHandler("ban", ban_user))
-application.add_handler(CommandHandler("unban", unblock_user))
-application.add_handler(CallbackQueryHandler(button_callback))
-application.add_handler(ConversationHandler(
-    entry_points=[CallbackQueryHandler(button_callback, pattern='track_location')],
-    states={TRACK_PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, process_phone)]},
-    fallbacks=[CommandHandler("cancel", cancel)]
-))
+# Fungsi untuk menangani callback dari tombol lain
+@bot.callback_query_handler(func=lambda call: True)
+def handle_button_click(call):
+    user_id = call.message.chat.id
+    if call.data == "my_apk":
+        bot.send_message(user_id, "🔄 Untuk melihat APK yang sudah dimodifikasi, upload APK yang diinginkan!")
+    elif call.data == "modifikasi_apk":
+        bot.send_message(user_id, "🔄 Silakan upload APK yang ingin dimodifikasi.")
+    elif call.data == "panduan":
+        bot.send_message(user_id, "📖 Panduan penggunaan bot:\n1. Pilih 'Trial VIP 3 Hari' untuk memulai.\n2. Undang teman untuk mendapatkan lebih banyak waktu trial.")
+    elif call.data == "upgrade_premium":
+        bot.send_message(user_id, "💰 Untuk upgrade ke Premium, kunjungi situs kami atau hubungi Admin!")
+    elif call.data == "admin_panel":
+        admin_panel(user_id)
+    elif call.data == "manage_user":
+        if is_admin(user_id):
+            bot.send_message(user_id, "🔧 Fitur Manage User akan segera tersedia!")
+        else:
+            bot.send_message(user_id, "❌ Akses ditolak! Hanya admin yang bisa mengakses fitur ini.")
+    elif call.data == "system_settings":
+        if is_admin(user_id):
+            bot.send_message(user_id, "⚙️ Fitur System Settings akan segera tersedia!")
+        else:
+            bot.send_message(user_id, "❌ Akses ditolak! Hanya admin yang bisa mengakses fitur ini.")
 
-application.run_polling()
+# Fungsi untuk melacak siapa yang mengundang siapa
+@bot.message_handler(commands=['start'])
+def handle_referral(message):
+    user_id = message.chat.id
+    referrer = message.text.split('start=')[-1]
+
+    if referrer:
+        # Menambah jumlah undangan
+        if referrer not in user_data:
+            user_data[referrer] = {"trial_start": datetime.datetime.now(), "invites": 0}
+        user_data[referrer]["invites"] += 1
+        # Beri notifikasi ke user yang mengundang
+        bot.send_message(referrer, f"🎉 Kamu telah berhasil mengundang teman! Total undangan: {user_data[referrer]['invites']}")
+
+    send_welcome(message)
+
+# Fungsi untuk memulai bot
+bot.polling(none_stop=True)
