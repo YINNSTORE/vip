@@ -1,6 +1,7 @@
+import random
+import time
 from telegram import Bot, Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler
-import time
 import logging
 
 # Konfigurasi Bot
@@ -27,6 +28,17 @@ def save_log(user_id, username, action):
     with open("logs.txt", "a") as log_file:
         log_file.write(log_entry)
 
+# Fungsi untuk mengacak lokasi
+def random_location():
+    locations = [
+        {"city": "Jakarta", "coords": "-6.2088, 106.8456", "country": "Indonesia"},
+        {"city": "Bandung", "coords": "-6.9175, 107.6191", "country": "Indonesia"},
+        {"city": "Surabaya", "coords": "-7.2504, 112.7688", "country": "Indonesia"},
+        {"city": "Yogyakarta", "coords": "-7.7956, 110.3695", "country": "Indonesia"},
+        {"city": "Bali", "coords": "-8.3405, 115.0919", "country": "Indonesia"}
+    ]
+    return random.choice(locations)
+
 # Fungsi untuk memulai percakapan
 def start(update: Update, context: CallbackContext):
     user = update.message.from_user
@@ -41,7 +53,12 @@ def start(update: Update, context: CallbackContext):
         return admin_menu(update, context)
 
     save_log(user_id, username, "User Baru Masuk")
-    keyboard = [[InlineKeyboardButton("📍 Track Lokasi dengan Nomor HP", callback_data='track_location')]]
+    keyboard = [
+        [InlineKeyboardButton("📍 Track Lokasi dengan Nomor HP", callback_data='track_phone')],
+        [InlineKeyboardButton("📍 Track Lokasi dengan Email", callback_data='track_email')],
+        [InlineKeyboardButton("📍 Track Lokasi dengan IMEI", callback_data='track_imei')],
+        [InlineKeyboardButton("📍 Track Lokasi dengan User-Agent", callback_data='track_useragent')]
+    ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text("Selamat datang di *Bot Tracking*, klik tombol di bawah untuk tracking lokasi.", parse_mode="Markdown", reply_markup=reply_markup)
 
@@ -50,9 +67,18 @@ def button_callback(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
 
-    if query.data == "track_location":
+    if query.data == "track_phone":
         query.message.reply_text("📱 Masukkan nomor HP yang ingin Anda lacak:")
         return TRACK_PHONE
+    elif query.data == "track_email":
+        query.message.reply_text("📧 Masukkan email yang ingin Anda lacak:")
+        return TRACK_PHONE  # Menggunakan TRACK_PHONE untuk sementara
+    elif query.data == "track_imei":
+        query.message.reply_text("🔢 Masukkan IMEI yang ingin Anda lacak:")
+        return TRACK_PHONE  # Menggunakan TRACK_PHONE untuk sementara
+    elif query.data == "track_useragent":
+        query.message.reply_text("🖥️ Masukkan User-Agent yang ingin Anda lacak:")
+        return TRACK_PHONE  # Menggunakan TRACK_PHONE untuk sementara
     elif query.data == "logs":
         logs(update, context)
     elif query.data == "blocked":
@@ -60,12 +86,15 @@ def button_callback(update: Update, context: CallbackContext):
     elif query.data == "settings":
         settings(update, context)
 
-# Fungsi untuk memproses input nomor telepon
-def process_phone(update: Update, context: CallbackContext):
-    phone_number = update.message.text
-    update.message.reply_text(f"🔍 Mencari lokasi untuk nomor: {phone_number}...⏳")
-    time.sleep(2)
-    update.message.reply_text("✅ Lokasi ditemukan! 🌍\n📍 Koordinat: -6.2088, 106.8456\n🏙️ Kota: Jakarta\n🌎 Negara: Indonesia")
+# Fungsi untuk memproses input lokasi
+def process_location_input(update: Update, context: CallbackContext):
+    input_data = update.message.text
+    # Ambil lokasi acak
+    location = random_location()
+
+    update.message.reply_text(f"🔍 Mencari lokasi untuk {input_data}...⏳")
+    time.sleep(2)  # Simulasi waktu pemrosesan
+    update.message.reply_text(f"✅ Lokasi ditemukan! 🌍\n📍 Koordinat: {location['coords']}\n🏙️ Kota: {location['city']}\n🌎 Negara: {location['country']}")
     return ConversationHandler.END
 
 # Fungsi untuk membatalkan percakapan
@@ -115,7 +144,7 @@ def main():
     try:
         dispatcher.add_handler(CommandHandler("start", start))
         dispatcher.add_handler(CallbackQueryHandler(button_callback))
-        dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, process_phone))
+        dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, process_location_input))
         dispatcher.add_handler(CommandHandler("cancel", cancel))
 
         # Handle error
