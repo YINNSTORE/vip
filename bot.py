@@ -7,7 +7,7 @@ import time  # Untuk menambah delay
 
 # Bot Token dan ID Admin
 API_TOKEN = '8024500353:AAHg3SUbXKN6AcWpyow0JdR_3Xz0Z1DGZUE'
-ADMIN_ID = '6353421952'  # Ganti dengan ID Telegram admin kamu
+ADMIN_ID = 6353421952  # Ganti dengan ID Telegram admin kamu
 bot = telebot.TeleBot(API_TOKEN)
 
 # Database untuk tracking user dan trial
