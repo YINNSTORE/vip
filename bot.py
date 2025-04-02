@@ -63,7 +63,7 @@ def admin_panel(user_id):
 def handle_trial_vip(call):
     user_id = call.message.chat.id
     trial_status = check_trial(user_id)
-    
+
     if trial_status:
         bot.send_message(user_id, "🎉 Kamu sudah mendapatkan Trial VIP 3 Hari!\nNikmati fitur premium yang tersedia!")
     else:
@@ -101,8 +101,13 @@ def handle_button_click(call):
 @bot.message_handler(commands=['start'])
 def handle_referral(message):
     user_id = message.chat.id
-    referrer = message.text.split('start=')[-1]
+    referrer = None
+    
+    # Cek apakah ada referral ID pada URL
+    if 'start=' in message.text:
+        referrer = message.text.split('start=')[-1]
 
+    # Proses jika ada referrer
     if referrer:
         # Menambah jumlah undangan
         if referrer not in user_data:
