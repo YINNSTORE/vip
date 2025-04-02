@@ -85,6 +85,8 @@ def button_callback(update: Update, context: CallbackContext):
         blocked(update, context)
     elif query.data == "settings":
         settings(update, context)
+    elif query.data == "back":
+        return start(update, context)  # Mengembalikan ke menu utama
 
 # Fungsi untuk memproses input lokasi
 def process_location_input(update: Update, context: CallbackContext):
@@ -107,7 +109,8 @@ def admin_menu(update: Update, context: CallbackContext):
     keyboard = [
         [InlineKeyboardButton("📜 Riwayat Pengguna", callback_data='logs')],
         [InlineKeyboardButton("🚫 User Diblokir", callback_data='blocked')],
-        [InlineKeyboardButton("⚙️ Pengaturan Bot", callback_data='settings')]
+        [InlineKeyboardButton("⚙️ Pengaturan Bot", callback_data='settings')],
+        [InlineKeyboardButton("⬅️ Kembali ke Menu Utama", callback_data="back")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text("🔧 *MENU ADMIN* 🔧", parse_mode="Markdown", reply_markup=reply_markup)
@@ -130,7 +133,8 @@ def blocked(update: Update, context: CallbackContext):
 def settings(update: Update, context: CallbackContext):
     keyboard = [
         [InlineKeyboardButton("🔄 Reset Bot", callback_data='reset_bot')],
-        [InlineKeyboardButton("📌 Atur Notifikasi", callback_data='set_notifications')]
+        [InlineKeyboardButton("📌 Atur Notifikasi", callback_data='set_notifications')],
+        [InlineKeyboardButton("⬅️ Kembali ke Menu Utama", callback_data="back")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text("⚙️ *Pengaturan Bot*", parse_mode="Markdown", reply_markup=reply_markup)
