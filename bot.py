@@ -1,6 +1,7 @@
 from telegram import Bot, Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler
 import time
+import logging
 
 # Konfigurasi Bot
 TOKEN = "8024500353:AAHg3SUbXKN6AcWpyow0JdR_3Xz0Z1DGZUE"
@@ -13,6 +14,10 @@ dispatcher = updater.dispatcher
 blocked_users = {}
 user_logs = []
 TRACK_PHONE = range(1)
+
+# Setup logging untuk menangkap error
+logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO)
+logger = logging.getLogger()
 
 # Fungsi untuk menyimpan log
 def save_log(user_id, username, action):
@@ -99,5 +104,27 @@ def settings(update: Update, context: CallbackContext):
         [InlineKeyboardButton("📌 Atur Notifikasi", callback_data='set_notifications')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text("⚙️ *Pengaturan Bot*", parse_mode="Markdown", reply_markup=
-    
+    update.message.reply_text("⚙️ *Pengaturan Bot*", parse_mode="Markdown", reply_markup=reply_markup)
+
+# Fungsi untuk menangani semua error
+def error(update: Update, context: CallbackContext):
+    logger.warning(f"Update {update} caused error {context.error}")
+
+# Menjalankan Bot
+def main():
+    try:
+        dispatcher.add_handler(CommandHandler("start", start))
+        dispatcher.add_handler(CallbackQueryHandler(button_callback))
+        dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, process_phone))
+        dispatcher.add_handler(CommandHandler("cancel", cancel))
+
+        # Handle error
+        dispatcher.add_error_handler(error)
+
+        updater.start_polling()
+        updater.idle()
+    except Exception as e:
+        logger.error(f"Error: {e}")
+
+if __name__ == '__main__':
+    main()
