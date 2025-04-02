@@ -3,6 +3,7 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import datetime
 import random
 import string
+import time  # Untuk menambah delay
 
 # Bot Token dan ID Admin
 API_TOKEN = '8024500353:AAHg3SUbXKN6AcWpyow0JdR_3Xz0Z1DGZUE'
@@ -20,11 +21,9 @@ def send_welcome(message):
     # Menu Admin
     if is_admin(user_id):
         markup.add(
-            InlineKeyboardButton("🎁 Trial VIP 3 Hari", callback_data="trial_vip"),
             InlineKeyboardButton("📂 My APK", callback_data="my_apk"),
             InlineKeyboardButton("🔄 Modifikasi APK", callback_data="modifikasi_apk"),
             InlineKeyboardButton("📖 Panduan", callback_data="panduan"),
-            InlineKeyboardButton("💰 Upgrade ke Premium", callback_data="upgrade_premium"),
             InlineKeyboardButton("👑 Admin Panel", callback_data="admin_panel")  # Only for admin
         )
         bot.send_message(user_id, "Selamat datang di Bot Modifikasi APK 🔥\nPilih menu admin di bawah:", reply_markup=markup)
@@ -80,37 +79,57 @@ def handle_trial_vip(call):
     trial_status = check_trial(user_id)
 
     if trial_status:
-        bot.send_message(user_id, "🎉 Kamu sudah mendapatkan Trial VIP 3 Hari!\nNikmati fitur premium yang tersedia!")
+        sent_message = bot.send_message(user_id, "🎉 Kamu sudah mendapatkan Trial VIP 3 Hari!\nNikmati fitur premium yang tersedia!")
+        time.sleep(5)  # Menunggu 5 detik sebelum menghapus pesan
+        bot.delete_message(user_id, sent_message.message_id)  # Menghapus pesan setelah 5 detik
     else:
-        bot.send_message(user_id, "❌ Trial VIP 3 Hari kamu sudah habis.\nSilakan undang teman untuk mendapatkan trial baru!")
+        sent_message = bot.send_message(user_id, "❌ Trial VIP 3 Hari kamu sudah habis.\nSilakan undang teman untuk mendapatkan trial baru!")
         # Kirimkan link referral
         referral_link = generate_referral_link(user_id)
         bot.send_message(user_id, f"Undang teman menggunakan link ini untuk mendapatkan trial VIP:\n{referral_link}")
+        time.sleep(5)  # Menunggu 5 detik sebelum menghapus pesan
+        bot.delete_message(user_id, sent_message.message_id)  # Menghapus pesan setelah 5 detik
 
 # Fungsi untuk menangani callback dari tombol lain
 @bot.callback_query_handler(func=lambda call: True)
 def handle_button_click(call):
     user_id = call.message.chat.id
     if call.data == "my_apk":
-        bot.send_message(user_id, "🔄 Untuk melihat APK yang sudah dimodifikasi, upload APK yang diinginkan!")
+        sent_message = bot.send_message(user_id, "🔄 Untuk melihat APK yang sudah dimodifikasi, upload APK yang diinginkan!")
+        time.sleep(5)  # Menunggu 5 detik sebelum menghapus pesan
+        bot.delete_message(user_id, sent_message.message_id)  # Menghapus pesan setelah 5 detik
     elif call.data == "modifikasi_apk":
-        bot.send_message(user_id, "🔄 Silakan upload APK yang ingin dimodifikasi.")
+        sent_message = bot.send_message(user_id, "🔄 Silakan upload APK yang ingin dimodifikasi.")
+        time.sleep(5)  # Menunggu 5 detik sebelum menghapus pesan
+        bot.delete_message(user_id, sent_message.message_id)  # Menghapus pesan setelah 5 detik
     elif call.data == "panduan":
-        bot.send_message(user_id, "📖 Panduan penggunaan bot:\n1. Pilih 'Trial VIP 3 Hari' untuk memulai.\n2. Undang teman untuk mendapatkan lebih banyak waktu trial.")
+        sent_message = bot.send_message(user_id, "📖 Panduan penggunaan bot:\n1. Pilih 'Trial VIP 3 Hari' untuk memulai.\n2. Undang teman untuk mendapatkan lebih banyak waktu trial.")
+        time.sleep(5)  # Menunggu 5 detik sebelum menghapus pesan
+        bot.delete_message(user_id, sent_message.message_id)  # Menghapus pesan setelah 5 detik
     elif call.data == "upgrade_premium":
-        bot.send_message(user_id, "💰 Untuk upgrade ke Premium, kunjungi situs kami atau hubungi Admin!")
+        sent_message = bot.send_message(user_id, "💰 Untuk upgrade ke Premium, kunjungi situs kami atau hubungi Admin!")
+        time.sleep(5)  # Menunggu 5 detik sebelum menghapus pesan
+        bot.delete_message(user_id, sent_message.message_id)  # Menghapus pesan setelah 5 detik
     elif call.data == "admin_panel":
         admin_panel(user_id)
     elif call.data == "manage_user":
         if is_admin(user_id):
-            bot.send_message(user_id, "🔧 Fitur Manage User akan segera tersedia!")
+            sent_message = bot.send_message(user_id, "🔧 Fitur Manage User akan segera tersedia!")
+            time.sleep(5)  # Menunggu 5 detik sebelum menghapus pesan
+            bot.delete_message(user_id, sent_message.message_id)  # Menghapus pesan setelah 5 detik
         else:
-            bot.send_message(user_id, "❌ Akses ditolak! Hanya admin yang bisa mengakses fitur ini.")
+            sent_message = bot.send_message(user_id, "❌ Akses ditolak! Hanya admin yang bisa mengakses fitur ini.")
+            time.sleep(5)  # Menunggu 5 detik sebelum menghapus pesan
+            bot.delete_message(user_id, sent_message.message_id)  # Menghapus pesan setelah 5 detik
     elif call.data == "system_settings":
         if is_admin(user_id):
-            bot.send_message(user_id, "⚙️ Fitur System Settings akan segera tersedia!")
+            sent_message = bot.send_message(user_id, "⚙️ Fitur System Settings akan segera tersedia!")
+            time.sleep(5)  # Menunggu 5 detik sebelum menghapus pesan
+            bot.delete_message(user_id, sent_message.message_id)  # Menghapus pesan setelah 5 detik
         else:
-            bot.send_message(user_id, "❌ Akses ditolak! Hanya admin yang bisa mengakses fitur ini.")
+            sent_message = bot.send_message(user_id, "❌ Akses ditolak! Hanya admin yang bisa mengakses fitur ini.")
+            time.sleep(5)  # Menunggu 5 detik sebelum menghapus pesan
+            bot.delete_message(user_id, sent_message.message_id)  # Menghapus pesan setelah 5 detik
 
 # Fungsi untuk melacak siapa yang mengundang siapa
 @bot.message_handler(commands=['start'])
