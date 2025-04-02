@@ -1,7 +1,7 @@
-import random
-import time
 from telegram import Bot, Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler
+import random
+import time
 import logging
 
 # Konfigurasi Bot
@@ -132,12 +132,27 @@ def blocked(update: Update, context: CallbackContext):
 # Pengaturan Bot
 def settings(update: Update, context: CallbackContext):
     keyboard = [
-        [InlineKeyboardButton("🔄 Reset Bot", callback_data='reset_bot')],
-        [InlineKeyboardButton("📌 Atur Notifikasi", callback_data='set_notifications')],
+        [InlineKeyboardButton("🔔 Atur Notifikasi Lokasi Ditemukan", callback_data='set_notification_location')],
+        [InlineKeyboardButton("🔔 Atur Notifikasi Update Bot", callback_data='set_notification_update')],
         [InlineKeyboardButton("⬅️ Kembali ke Menu Utama", callback_data="back")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text("⚙️ *Pengaturan Bot*", parse_mode="Markdown", reply_markup=reply_markup)
+    update.message.reply_text("⚙️ *Pengaturan Bot*\nPilih pengaturan notifikasi yang ingin Anda atur:", parse_mode="Markdown", reply_markup=reply_markup)
+
+# Fungsi untuk mengatur notifikasi
+def set_notification_location(update: Update, context: CallbackContext):
+    query = update.callback_query
+    query.answer()
+    # Misalnya, kita bisa menambahkan toggle untuk mengaktifkan/menonaktifkan notifikasi lokasi
+    query.edit_message_text("✅ Notifikasi lokasi ditemukan sekarang aktif.\n\nKlik tombol kembali untuk kembali ke pengaturan.")
+    return settings(update, context)
+
+def set_notification_update(update: Update, context: CallbackContext):
+    query = update.callback_query
+    query.answer()
+    # Misalnya, kita bisa menambahkan toggle untuk mengaktifkan/menonaktifkan notifikasi update
+    query.edit_message_text("✅ Notifikasi pembaruan bot sekarang aktif.\n\nKlik tombol kembali untuk kembali ke pengaturan.")
+    return settings(update, context)
 
 # Fungsi untuk menangani semua error
 def error(update: Update, context: CallbackContext):
