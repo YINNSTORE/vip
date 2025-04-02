@@ -1,4 +1,4 @@
-from telegram import Bot, Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Bot, Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, InputMediaVideo, InputMediaAudio, InputMediaDocument
 from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler
 import random
 import time
@@ -15,6 +15,7 @@ dispatcher = updater.dispatcher
 blocked_users = {}
 user_logs = []
 TRACK_PHONE = range(1)
+SEND_ANNOUNCEMENT = range(1)
 
 # Setup logging untuk menangkap error
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -87,6 +88,9 @@ def button_callback(update: Update, context: CallbackContext):
         settings(update, context)
     elif query.data == "back":
         return start(update, context)  # Mengembalikan ke menu utama
+    elif query.data == "send_announcement":
+        query.message.reply_text("Kirimkan pengumuman yang ingin Anda kirimkan (teks, gambar, video, musik, dll.):")
+        return SEND_ANNOUNCEMENT
 
 # Fungsi untuk memproses input lokasi
 def process_location_input(update: Update, context: CallbackContext):
@@ -110,6 +114,7 @@ def admin_menu(update: Update, context: CallbackContext):
         [InlineKeyboardButton("📜 Riwayat Pengguna", callback_data='logs')],
         [InlineKeyboardButton("🚫 User Diblokir", callback_data='blocked')],
         [InlineKeyboardButton("⚙️ Pengaturan Bot", callback_data='settings')],
+        [InlineKeyboardButton("📢 Kirim Pengumuman", callback_data='send_announcement')],
         [InlineKeyboardButton("⬅️ Kembali ke Menu Utama", callback_data="back")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -154,6 +159,28 @@ def set_notification_update(update: Update, context: CallbackContext):
     query.edit_message_text("✅ Notifikasi pembaruan bot sekarang aktif.\n\nKlik tombol kembali untuk kembali ke pengaturan.")
     return settings(update, context)
 
+# Fungsi untuk mengirim pengumuman
+def send_announcement(update: Update, context: CallbackContext):
+    message = update.message
+    for user_id in context.bot_data.get('all_user_ids', []):
+        try:
+            if message.text:
+                context.bot.send_message(chat_id=user_id, text=message.text)
+            elif message.photo:
+                context.bot.send_photo(chat_id=user_id, photo=message.photo[-1].file_id, caption=message.caption)
+            elif message.video:
+                context.bot.send_video(chat_id=user_id, video=message.video.file_id, caption=message.caption)
+            elif message.audio:
+                context.bot.send_audio(chat_id=user_id, audio=message.audio.file_id, caption=message.caption)
+            elif message.document:
+                context.bot.send_document(chat_id=user_id, document=message.document.file_id, caption=message.caption)
+            elif message.sticker:
+                context.bot.send_sticker(chat_id=user_id, sticker=message.sticker.file_id)
+        except Exception as e:
+            logger.error(f"Error sending announcement to {user_id}: {e}")
+    update.message.reply_text("Pengumuman telah dikirim.")
+    return ConversationHandler.END
+
 # Fungsi untuk menangani semua error
 def error(update: Update, context: CallbackContext):
     logger.warning(f"Update {update} caused error {context.error}")
@@ -165,6 +192,7 @@ def main():
         dispatcher.add_handler(CallbackQueryHandler(button_callback))
         dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, process_location_input))
         dispatcher.add_handler(CommandHandler("cancel", cancel))
+        dispatcher.add_handler(MessageHandler(Filters.all, send_announcement), group=SEND_ANNOUNCEMENT[0])
 
         # Handle error
         dispatcher.add_error_handler(error)
