@@ -1,14 +1,16 @@
 import logging
 import asyncio
 import aiohttp
+import io
 from aiogram import Bot, Dispatcher, types
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 from aiogram.utils import executor
 from aiogram.dispatcher.filters import Text
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 
+# ✅ GANTI DENGAN TOKEN BOT KAMU
 API_TOKEN = '8024500353:AAHg3SUbXKN6AcWpyow0JdR_3Xz0Z1DGZUE'
 
 logging.basicConfig(level=logging.INFO)
@@ -16,96 +18,150 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot, storage=MemoryStorage())
 
-# Simpan riwayat pengguna
 user_history = {}
 
-# State machine
 class Form(StatesGroup):
     waiting_for_domain = State()
 
-# /start command
 @dp.message_handler(commands=['start'])
 async def send_welcome(message: types.Message):
     keyboard = InlineKeyboardMarkup(row_width=2)
     keyboard.add(
-        InlineKeyboardButton("🔎 Mulai Pencarian", callback_data='search'),
-        InlineKeyboardButton("🗂️ Lihat Riwayat", callback_data='history')
+        InlineKeyboardButton("🔍 Mulai Cari Subdomain", callback_data='search'),
+        InlineKeyboardButton("📚 Riwayat Pencarian", callback_data='history')
     )
-
     banner = (
-        "🌐 *Selamat datang di Subdomain Explorer Bot!*\n\n"
-        "🧠 Bot ini dirancang untuk membantu kamu menemukan subdomain tersembunyi dari sebuah domain utama. "
-        "Gunakan tools ini untuk keperluan OSINT, analisis keamanan, atau hanya sekadar eksplorasi teknis.\n\n"
-        "⚙️ *Fitur Unggulan:*\n"
-        "• Pencarian subdomain otomatis & cepat\n"
-        "• Urutan berdasarkan status proxy\n"
-        "• Riwayat pencarian pribadi\n\n"
-        "🔽 Silakan pilih menu di bawah untuk memulai:"
+        "🌐 *Selamat datang di Bot Subdomain Finder!*\n\n"
+        "🔎 Bot ini membantu kamu mencari subdomain tersembunyi dari domain publik.\n\n"
+        "⚙️ *Fitur:*\n"
+        "• Gabungan dari 3 sumber tanpa API\n"
+        "• Urutan hasil berdasarkan proxy\n"
+        "• Ekspor hasil ke file\n"
+        "• Riwayat pencarian\n\n"
+        "Silakan pilih menu di bawah ini untuk mulai."
     )
     await message.answer(banner, parse_mode="Markdown", reply_markup=keyboard)
 
-# Ketika tombol Mulai Pencarian ditekan
 @dp.callback_query_handler(Text(equals='search'))
 async def handle_search(callback_query: types.CallbackQuery):
     await bot.answer_callback_query(callback_query.id)
-    await bot.send_message(callback_query.from_user.id, "🔍 Masukkan nama domain (contoh: `example.com`):", parse_mode="Markdown")
+    await bot.send_message(callback_query.from_user.id, "📥 Masukkan nama domain (contoh: `example.com`):", parse_mode="Markdown")
     await Form.waiting_for_domain.set()
 
-# Handle input domain
 @dp.message_handler(state=Form.waiting_for_domain)
 async def process_domain(message: types.Message, state: FSMContext):
-    domain = message.text.strip()
+    domain = message.text.strip().lower()
     await state.finish()
 
-    loading_msg = await message.answer("🚀 Mencari subdomain...\n`[■■■□□□□] Loading...`", parse_mode="Markdown")
+    loading_msg = await message.answer("🚀 Mencari subdomain...\n`[■□□□□□□] Loading...`", parse_mode="Markdown")
 
-    # Simulasi animasi loading
-    for bar in ["[■■■□□□□]", "[■■■■■□□]", "[■■■■■■■]"]:
-        await loading_msg.edit_text(f"🚀 Mencari subdomain...\n`{bar} Loading...`", parse_mode="Markdown")
-        await asyncio.sleep(0.5)
+    loading_bars = ["[■□□□□□□]", "[■■□□□□□]", "[■■■□□□□]", "[■■■■□□□]", "[■■■■■□□]", "[■■■■■■□]", "[■■■■■■■]"]
+    is_searching = True
 
-    # Ambil subdomain (dummy)
-    subdomains = await find_subdomains(domain)
+    async def animate_loading():
+        i = 0
+        while is_searching:
+            bar = loading_bars[i % len(loading_bars)]
+            await loading_msg.edit_text(f"🚀 Mencari subdomain...\n`{bar} Loading...`", parse_mode="Markdown")
+            await asyncio.sleep(0.3)
+            i += 1
 
-    # Urutkan: proxy on (True) dulu
-    sorted_subs = sorted(subdomains, key=lambda x: not x['proxy'])
+    loading_task = asyncio.create_task(animate_loading())
+
+    try:
+        subs = await find_subdomains_all(domain)
+    except Exception as e:
+        is_searching = False
+        await loading_task
+        await loading_msg.edit_text(f"❌ Gagal mencari subdomain:\n`{e}`", parse_mode="Markdown")
+        return
+
+    is_searching = False
+    await loading_task
+
+    if not subs:
+        await loading_msg.edit_text(f"❗ Tidak ditemukan subdomain untuk `{domain}`.", parse_mode="Markdown")
+        return
+
+    sorted_subs = sorted(set(subs), key=lambda x: not ("cdn" in x or "cloudflare" in x))
 
     text_result = f"✅ *Subdomain ditemukan untuk:* `{domain}`\n\n"
-    for sub in sorted_subs:
-        status = "🟢 Proxy ON" if sub["proxy"] else "🔴 Proxy OFF"
-        text_result += f"• `{sub['host']}` - {status}\n"
+    for s in sorted_subs:
+        status = "🟢 Proxy ON" if ("cdn" in s or "cloudflare" in s) else "🔴 Proxy OFF"
+        text_result += f"• `{s}` - {status}\n"
+
+    count_on = sum(1 for s in sorted_subs if "cdn" in s or "cloudflare" in s)
+    count_off = len(sorted_subs) - count_on
+    text_result += f"\n📊 Total: {len(sorted_subs)} | 🟢 ON: {count_on} | 🔴 OFF: {count_off}"
 
     await loading_msg.edit_text(text_result, parse_mode="Markdown")
 
-    # Simpan history user
+    file_content = "\n".join(sorted_subs)
+    file = io.StringIO(file_content)
+    file.name = f"{domain}_subdomains.txt"
+    await bot.send_document(message.chat.id, InputFile(file))
+
     uid = message.from_user.id
     user_history.setdefault(uid, []).append((domain, sorted_subs))
 
-# Ketika tombol Lihat Riwayat ditekan
 @dp.callback_query_handler(Text(equals='history'))
 async def handle_history(callback_query: types.CallbackQuery):
     await bot.answer_callback_query(callback_query.id)
     uid = callback_query.from_user.id
-
     history = user_history.get(uid, [])
     if not history:
-        await bot.send_message(uid, "❌ Belum ada riwayat pencarian.")
+        await bot.send_message(uid, "📭 Belum ada riwayat pencarian.")
         return
 
-    message = "📜 *Riwayat Pencarian Terakhir:*\n\n"
+    msg = "📚 *Riwayat Terakhir:*\n\n"
     for i, (domain, subs) in enumerate(history[-5:], 1):
-        message += f"{i}. `{domain}` ({len(subs)} subdomain ditemukan)\n"
+        msg += f"{i}. `{domain}` ({len(subs)} subdomain)\n"
+    await bot.send_message(uid, msg, parse_mode="Markdown")
 
-    await bot.send_message(uid, message, parse_mode="Markdown")
+# Fungsi gabungan dari crt.sh, rapiddns.io, dan hackertarget
+async def find_subdomains_all(domain):
+    results = set()
 
-# Dummy subdomain finder (ganti dengan API asli jika perlu)
-async def find_subdomains(domain):
-    return [
-        {"host": f"api.{domain}", "proxy": True},
-        {"host": f"dev.{domain}", "proxy": False},
-        {"host": f"cdn.{domain}", "proxy": True},
-        {"host": f"mail.{domain}", "proxy": False}
-    ]
+    # crt.sh
+    try:
+        url = f"https://crt.sh/?q=%25.{domain}&output=json"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as r:
+                if r.status == 200:
+                    json_data = await r.json(content_type=None)
+                    for entry in json_data:
+                        name = entry.get("name_value", "")
+                        for item in name.split("\n"):
+                            if "*" not in item:
+                                results.add(item.strip())
+    except:
+        pass
+
+    # rapiddns.io
+    try:
+        url = f"https://rapiddns.io/subdomain/{domain}?full=1"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as r:
+                if r.status == 200:
+                    html = await r.text()
+                    results.update(set([line.strip() for line in html.split() if domain in line and '<td>' in line]))
+    except:
+        pass
+
+    # hackertarget
+    try:
+        url = f"https://api.hackertarget.com/hostsearch/?q={domain}"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as r:
+                if r.status == 200:
+                    txt = await r.text()
+                    for line in txt.splitlines():
+                        sub, _ = line.split(",")
+                        results.add(sub.strip())
+    except:
+        pass
+
+    return list(results)
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
