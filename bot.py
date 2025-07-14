@@ -17,6 +17,7 @@ bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot, storage=MemoryStorage())
 
 user_history = {}
+scan_results_cache = {}
 
 class Form(StatesGroup):
     waiting_for_domain = State()
@@ -26,7 +27,7 @@ async def start_command(message: types.Message):
     keyboard = InlineKeyboardMarkup(row_width=1)
     keyboard.add(InlineKeyboardButton("🔍 Mulai Scan Subdomain", callback_data="scan"))
     keyboard.add(InlineKeyboardButton("📚 Riwayat Pencarian", callback_data="history"))
-    await message.answer("👋 *Selamat datang di Subdomain Finder Bot berbasis API!*\n\n🔎 Gunakan tombol di bawah ini untuk mulai mencari subdomain dari domain apa pun!", parse_mode="Markdown", reply_markup=keyboard)
+    await message.answer("👋 *Selamat datang di Subdomain Finder Bot!*\n\n🔎 Gunakan tombol di bawah ini untuk mulai mencari subdomain dari domain apa pun.", parse_mode="Markdown", reply_markup=keyboard)
 
 @dp.callback_query_handler(Text(equals="scan"))
 async def scan_start(callback_query: types.CallbackQuery):
@@ -70,14 +71,17 @@ async def handle_domain(message: types.Message, state: FSMContext):
 
     on = [s for s in subdomains if is_proxy(s)]
     off = [s for s in subdomains if not is_proxy(s)]
-    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    now = datetime.datetime.now().strftime("%d-%m-%Y %H:%M")
 
-    msg = f"📝 *Hasil Scan:* `{domain}`\n📅 Tanggal: {now}\n🔢 Total: {len(subdomains)}\n\n"
-    msg += "☁️ *Proxy ON:*\n" + "\n".join(f"• `{s}`" for s in on[:15]) + ("\n..." if len(on) > 15 else "")
-    msg += "\n\n🚫 *Proxy OFF:*\n" + "\n".join(f"• `{s}`" for s in off[:15]) + ("\n..." if len(off) > 15 else "")
+    msg = f"📝 *Hasil Scan:* `{domain}`\n📅 Tanggal: {now}\n🔢 Total: {len(subdomains)} subdomain\n\n"
+    msg += "☁️ *Proxy ON:*\n" + "\n".join(f"• ☁️ `{s}`" for s in on[:20]) + ("\n..." if len(on) > 20 else "")
+    msg += "\n\n⛅ *Proxy OFF:*\n" + "\n".join(f"• ⛅ `{s}`" for s in off[:20]) + ("\n..." if len(off) > 20 else "")
 
     await loading.edit_text(msg, parse_mode="Markdown")
-    user_history.setdefault(message.from_user.id, []).append((domain, now, len(subdomains)))
+
+    uid = message.from_user.id
+    user_history.setdefault(uid, []).append((domain, now))
+    scan_results_cache[(uid, domain)] = (on, off, now)
 
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("🔁 Scan Ulang", callback_data=f"rescan:{domain}"))
@@ -98,9 +102,28 @@ async def show_history(callback_query: types.CallbackQuery):
         await bot.send_message(uid, "📭 Belum ada riwayat.")
         return
 
-    msg = "📚 *Riwayat Terakhir:*\n\n"
-    for i, (domain, tgl, total) in enumerate(history[-5:], 1):
-        msg += f"{i}. `{domain}` – {total} subdomain ({tgl})\n"
+    keyboard = InlineKeyboardMarkup(row_width=1)
+    for domain, tgl in reversed(history[-10:]):
+        keyboard.add(InlineKeyboardButton(f"{domain} – {tgl}", callback_data=f"show:{domain}"))
+
+    await bot.send_message(uid, "📚 Pilih riwayat domain di bawah:", reply_markup=keyboard)
+
+@dp.callback_query_handler(lambda c: c.data.startswith("show:"))
+async def handle_history_show(callback_query: types.CallbackQuery):
+    uid = callback_query.from_user.id
+    domain = callback_query.data.split(":")[1]
+    await bot.answer_callback_query(callback_query.id)
+
+    cache = scan_results_cache.get((uid, domain))
+    if not cache:
+        await bot.send_message(uid, "❌ Data hasil scan tidak ditemukan atau sudah kadaluarsa.")
+        return
+
+    on, off, now = cache
+    msg = f"📝 *Hasil Riwayat:* `{domain}`\n📅 Tanggal: {now}\n🔢 Total: {len(on) + len(off)} subdomain\n\n"
+    msg += "☁️ *Proxy ON:*\n" + "\n".join(f"• ☁️ `{s}`" for s in on[:20]) + ("\n..." if len(on) > 20 else "")
+    msg += "\n\n⛅ *Proxy OFF:*\n" + "\n".join(f"• ⛅ `{s}`" for s in off[:20]) + ("\n..." if len(off) > 20 else "")
+
     await bot.send_message(uid, msg, parse_mode="Markdown")
 
 async def fetch_subdomains(domain):
@@ -114,8 +137,7 @@ async def fetch_subdomains(domain):
                     if "," in line:
                         sub, _ = line.split(",")
                         results.add(sub.strip())
-        except Exception as e:
-            logging.warning(f"Hackertarget error: {e}")
+        except: pass
 
         try:
             async with session.get(f"https://dns.bufferover.run/dns?q=.\{domain}") as r:
@@ -125,14 +147,13 @@ async def fetch_subdomains(domain):
                     part = rec.split(",")[-1]
                     if domain in part:
                         results.add(part.strip())
-        except Exception as e:
-            logging.warning(f"Bufferover error: {e}")
+        except: pass
 
     return list(results)
 
 def is_proxy(sub):
-    # Naif check untuk demo, bisa ditambah pengecekan IP ASN cloudflare/CDN
-    return any(key in sub for key in ["cdn", "cloud", "cache", "images", "static"])
+    keywords = ["cdn", "cloud", "cache", "images", "static"]
+    return any(key in sub for key in keywords)
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
