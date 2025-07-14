@@ -34,10 +34,14 @@ def main_menu():
 
 @dp.message_handler(commands=['start'])
 async def start_command(message: types.Message):
-    await message.answer("👋 *Selamat datang di Subdomain Finder Bot!*\n\nGunakan tombol di bawah ini untuk mulai mencari subdomain dari domain apa pun.", reply_markup=main_menu())
+    
+await message.answer(
+    """👋 *Selamat datang di Subdomain Finder Bot!*
 
-Gunakan tombol di bawah ini untuk mulai mencari subdomain dari domain apa pun.",
-                         reply_markup=main_menu())
+Gunakan tombol di bawah ini untuk mulai mencari subdomain dari domain apa pun.""",
+    reply_markup=main_menu()
+)
+
 
 @dp.callback_query_handler(lambda c: c.data == "scan")
 async def scan_start(callback_query: types.CallbackQuery):
