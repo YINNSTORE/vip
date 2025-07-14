@@ -34,7 +34,7 @@ def main_menu():
 
 @dp.message_handler(commands=['start'])
 async def start_command(message: types.Message):
-    await message.answer("👋 *Selamat datang di Subdomain Finder Bot!*
+    await message.answer("👋 *Selamat datang di Subdomain Finder Bot!*\n\nGunakan tombol di bawah ini untuk mulai mencari subdomain dari domain apa pun.", reply_markup=main_menu())
 
 Gunakan tombol di bawah ini untuk mulai mencari subdomain dari domain apa pun.",
                          reply_markup=main_menu())
