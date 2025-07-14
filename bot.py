@@ -1,206 +1,173 @@
-from telegram import Bot, Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, InputMediaVideo, InputMediaAudio, InputMediaDocument
-from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters, ConversationHandler, CallbackQueryHandler
-import random
-import time
 import logging
+import asyncio
+import aiohttp
+import io
+from aiogram import Bot, Dispatcher, types
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, InputFile
+from aiogram.utils import executor
+from aiogram.dispatcher.filters import Text
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from aiogram.dispatcher import FSMContext
+from aiogram.dispatcher.filters.state import State, StatesGroup
 
-# Konfigurasi Bot
-TOKEN = "8024500353:AAHg3SUbXKN6AcWpyow0JdR_3Xz0Z1DGZUE"
-ADMIN_IDS = {"6353421952"}
-bot = Bot(token=TOKEN)
-updater = Updater(token=TOKEN)
-dispatcher = updater.dispatcher
+API_TOKEN = '8024500353:AAHg3SUbXKN6AcWpyow0JdR_3Xz0Z1DGZUE'
 
-# Database Sederhana
-blocked_users = {}
-user_logs = []
-TRACK_PHONE = range(1)
-SEND_ANNOUNCEMENT = range(1)
+logging.basicConfig(level=logging.INFO)
 
-# Setup logging untuk menangkap error
-logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO)
-logger = logging.getLogger()
+bot = Bot(token=API_TOKEN)
+dp = Dispatcher(bot, storage=MemoryStorage())
 
-# Fungsi untuk menyimpan log
-def save_log(user_id, username, action):
-    timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-    log_entry = f"[{timestamp}] ID: {user_id} | Username: {username} | Aksi: {action}\n"
-    user_logs.append(log_entry)
-    with open("logs.txt", "a") as log_file:
-        log_file.write(log_entry)
+user_history = {}
 
-# Fungsi untuk mengacak lokasi
-def random_location():
-    locations = [
-        {"city": "Jakarta", "coords": "-6.2088, 106.8456", "country": "Indonesia"},
-        {"city": "Bandung", "coords": "-6.9175, 107.6191", "country": "Indonesia"},
-        {"city": "Surabaya", "coords": "-7.2504, 112.7688", "country": "Indonesia"},
-        {"city": "Yogyakarta", "coords": "-7.7956, 110.3695", "country": "Indonesia"},
-        {"city": "Bali", "coords": "-8.3405, 115.0919", "country": "Indonesia"}
-    ]
-    return random.choice(locations)
+class Form(StatesGroup):
+    waiting_for_domain = State()
 
-# Fungsi untuk memulai percakapan
-def start(update: Update, context: CallbackContext):
-    user = update.message.from_user
-    user_id = user.id
-    username = user.username if user.username else "(Tidak Ada)"
+@dp.message_handler(commands=['start'])
+async def send_welcome(message: types.Message):
+    keyboard = InlineKeyboardMarkup(row_width=2)
+    keyboard.add(
+        InlineKeyboardButton("🔍 Mulai Cari Subdomain", callback_data='search'),
+        InlineKeyboardButton("📚 Riwayat Pencarian", callback_data='history')
+    )
+    banner = (
+        "🌐 *Selamat datang di Bot Subdomain Finder!*\n\n"
+        "🔎 Bot ini membantu kamu mencari subdomain tersembunyi dari domain publik.\n\n"
+        "⚙️ *Fitur:*\n"
+        "• Gabungan dari 3 sumber tanpa API\n"
+        "• Urutan hasil berdasarkan proxy\n"
+        "• Ekspor hasil ke file\n"
+        "• Riwayat pencarian\n\n"
+        "Silakan pilih menu di bawah ini untuk mulai."
+    )
+    await message.answer(banner, parse_mode="Markdown", reply_markup=keyboard)
 
-    if user_id in blocked_users:
-        update.message.reply_text("⛔ Anda telah diblokir.")
+@dp.callback_query_handler(Text(equals='search'))
+async def handle_search(callback_query: types.CallbackQuery):
+    await bot.answer_callback_query(callback_query.id)
+    await bot.send_message(callback_query.from_user.id, "📥 Masukkan nama domain (contoh: `example.com`):", parse_mode="Markdown")
+    await Form.waiting_for_domain.set()
+
+@dp.message_handler(state=Form.waiting_for_domain)
+async def process_domain(message: types.Message, state: FSMContext):
+    domain = message.text.strip().lower()
+    await state.finish()
+
+    loading_msg = await message.answer("🚀 Mencari subdomain...\n`[■□□□□□□] Loading...`", parse_mode="Markdown")
+
+    loading_bars = ["[■□□□□□□]", "[■■□□□□□]", "[■■■□□□□]", "[■■■■□□□]", "[■■■■■□□]", "[■■■■■■□]", "[■■■■■■■]"]
+    loading_done = asyncio.Event()
+
+    async def animate_loading():
+        i = 0
+        while not loading_done.is_set():
+            bar = loading_bars[i % len(loading_bars)]
+            try:
+                await loading_msg.edit_text(f"🚀 Mencari subdomain...\n`{bar} Loading...`", parse_mode="Markdown")
+            except:
+                pass
+            await asyncio.sleep(0.4)
+            i += 1
+
+    loading_task = asyncio.create_task(animate_loading())
+
+    try:
+        subs = await find_subdomains_all(domain)
+    except Exception as e:
+        loading_done.set()
+        await loading_task
+        await loading_msg.edit_text(f"❌ Terjadi kesalahan saat mencari:\n`{e}`", parse_mode="Markdown")
         return
 
-    if str(user_id) in ADMIN_IDS:
-        return admin_menu(update, context)
+    loading_done.set()
+    await loading_task
 
-    save_log(user_id, username, "User Baru Masuk")
-    keyboard = [
-        [InlineKeyboardButton("📍 Track Lokasi dengan Nomor HP", callback_data='track_phone')],
-        [InlineKeyboardButton("📍 Track Lokasi dengan Email", callback_data='track_email')],
-        [InlineKeyboardButton("📍 Track Lokasi dengan IMEI", callback_data='track_imei')],
-        [InlineKeyboardButton("📍 Track Lokasi dengan User-Agent", callback_data='track_useragent')]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text("Selamat datang di *Bot Tracking*, klik tombol di bawah untuk tracking lokasi.", parse_mode="Markdown", reply_markup=reply_markup)
+    if not subs:
+        await loading_msg.edit_text(f"❗ Tidak ditemukan subdomain untuk `{domain}`.", parse_mode="Markdown")
+        return
 
-# Fungsi untuk menangani tombol yang ditekan
-def button_callback(update: Update, context: CallbackContext):
-    query = update.callback_query
-    query.answer()
+    sorted_subs = sorted(set(subs), key=lambda x: not ("cdn" in x or "cloudflare" in x))
 
-    if query.data == "track_phone":
-        query.message.reply_text("📱 Masukkan nomor HP yang ingin Anda lacak:")
-        return TRACK_PHONE
-    elif query.data == "track_email":
-        query.message.reply_text("📧 Masukkan email yang ingin Anda lacak:")
-        return TRACK_PHONE  # Menggunakan TRACK_PHONE untuk sementara
-    elif query.data == "track_imei":
-        query.message.reply_text("🔢 Masukkan IMEI yang ingin Anda lacak:")
-        return TRACK_PHONE  # Menggunakan TRACK_PHONE untuk sementara
-    elif query.data == "track_useragent":
-        query.message.reply_text("🖥️ Masukkan User-Agent yang ingin Anda lacak:")
-        return TRACK_PHONE  # Menggunakan TRACK_PHONE untuk sementara
-    elif query.data == "logs":
-        logs(update, context)
-    elif query.data == "blocked":
-        blocked(update, context)
-    elif query.data == "settings":
-        settings(update, context)
-    elif query.data == "back":
-        return start(update, context)  # Mengembalikan ke menu utama
-    elif query.data == "send_announcement":
-        query.message.reply_text("Kirimkan pengumuman yang ingin Anda kirimkan (teks, gambar, video, musik, dll.):")
-        return SEND_ANNOUNCEMENT
+    text_result = f"✅ *Subdomain ditemukan untuk:* `{domain}`\n\n"
+    for s in sorted_subs:
+        status = "🟢 Proxy ON" if ("cdn" in s or "cloudflare" in s) else "🔴 Proxy OFF"
+        text_result += f"• `{s}` - {status}\n"
 
-# Fungsi untuk memproses input lokasi
-def process_location_input(update: Update, context: CallbackContext):
-    input_data = update.message.text
-    # Ambil lokasi acak
-    location = random_location()
+    count_on = sum(1 for s in sorted_subs if "cdn" in s or "cloudflare" in s)
+    count_off = len(sorted_subs) - count_on
+    text_result += f"\n📊 Total: {len(sorted_subs)} | 🟢 ON: {count_on} | 🔴 OFF: {count_off}"
 
-    update.message.reply_text(f"🔍 Mencari lokasi untuk {input_data}...⏳")
-    time.sleep(2)  # Simulasi waktu pemrosesan
-    update.message.reply_text(f"✅ Lokasi ditemukan! 🌍\n📍 Koordinat: {location['coords']}\n🏙️ Kota: {location['city']}\n🌎 Negara: {location['country']}")
-    return ConversationHandler.END
+    await loading_msg.edit_text(text_result, parse_mode="Markdown")
 
-# Fungsi untuk membatalkan percakapan
-def cancel(update: Update, context: CallbackContext):
-    update.message.reply_text("❌ Tracking dibatalkan.")
-    return ConversationHandler.END
+    file_content = "\n".join(sorted_subs)
+    file = io.StringIO(file_content)
+    file.name = f"{domain}_subdomains.txt"
+    await bot.send_document(message.chat.id, InputFile(file))
 
-# Menu Admin
-def admin_menu(update: Update, context: CallbackContext):
-    keyboard = [
-        [InlineKeyboardButton("📜 Riwayat Pengguna", callback_data='logs')],
-        [InlineKeyboardButton("🚫 User Diblokir", callback_data='blocked')],
-        [InlineKeyboardButton("⚙️ Pengaturan Bot", callback_data='settings')],
-        [InlineKeyboardButton("📢 Kirim Pengumuman", callback_data='send_announcement')],
-        [InlineKeyboardButton("⬅️ Kembali ke Menu Utama", callback_data="back")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text("🔧 *MENU ADMIN* 🔧", parse_mode="Markdown", reply_markup=reply_markup)
+    uid = message.from_user.id
+    user_history.setdefault(uid, []).append((domain, sorted_subs))
 
-# Menampilkan log pengguna
-def logs(update: Update, context: CallbackContext):
-    with open("logs.txt", "r") as log_file:
-        logs_content = log_file.read()
-    update.message.reply_text(f"📜 *Log Pengguna:*\n{logs_content}"[:4096], parse_mode="Markdown")
+@dp.callback_query_handler(Text(equals='history'))
+async def handle_history(callback_query: types.CallbackQuery):
+    await bot.answer_callback_query(callback_query.id)
+    uid = callback_query.from_user.id
+    history = user_history.get(uid, [])
+    if not history:
+        await bot.send_message(uid, "📭 Belum ada riwayat pencarian.")
+        return
 
-# Menampilkan user yang diblokir
-def blocked(update: Update, context: CallbackContext):
-    if not blocked_users:
-        update.message.reply_text("✅ Tidak ada user yang diblokir.")
-    else:
-        message = "🚫 *User yang Diblokir:*\n" + "\n".join([str(uid) for uid in blocked_users.keys()])
-        update.message.reply_text(message, parse_mode="Markdown")
+    msg = "📚 *Riwayat Terakhir:*\n\n"
+    for i, (domain, subs) in enumerate(history[-5:], 1):
+        msg += f"{i}. `{domain}` ({len(subs)} subdomain)\n"
+    await bot.send_message(uid, msg, parse_mode="Markdown")
 
-# Pengaturan Bot
-def settings(update: Update, context: CallbackContext):
-    keyboard = [
-        [InlineKeyboardButton("🔔 Atur Notifikasi Lokasi Ditemukan", callback_data='set_notification_location')],
-        [InlineKeyboardButton("🔔 Atur Notifikasi Update Bot", callback_data='set_notification_update')],
-        [InlineKeyboardButton("⬅️ Kembali ke Menu Utama", callback_data="back")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text("⚙️ *Pengaturan Bot*\nPilih pengaturan notifikasi yang ingin Anda atur:", parse_mode="Markdown", reply_markup=reply_markup)
+# Fungsi gabungan dari crt.sh, rapiddns.io, dan hackertarget
+async def find_subdomains_all(domain):
+    results = set()
+    timeout = aiohttp.ClientTimeout(total=10)
 
-# Fungsi untuk mengatur notifikasi
-def set_notification_location(update: Update, context: CallbackContext):
-    query = update.callback_query
-    query.answer()
-    # Misalnya, kita bisa menambahkan toggle untuk mengaktifkan/menonaktifkan notifikasi lokasi
-    query.edit_message_text("✅ Notifikasi lokasi ditemukan sekarang aktif.\n\nKlik tombol kembali untuk kembali ke pengaturan.")
-    return settings(update, context)
-
-def set_notification_update(update: Update, context: CallbackContext):
-    query = update.callback_query
-    query.answer()
-    # Misalnya, kita bisa menambahkan toggle untuk mengaktifkan/menonaktifkan notifikasi update
-    query.edit_message_text("✅ Notifikasi pembaruan bot sekarang aktif.\n\nKlik tombol kembali untuk kembali ke pengaturan.")
-    return settings(update, context)
-
-# Fungsi untuk mengirim pengumuman
-def send_announcement(update: Update, context: CallbackContext):
-    message = update.message
-    for user_id in context.bot_data.get('all_user_ids', []):
-        try:
-            if message.text:
-                context.bot.send_message(chat_id=user_id, text=message.text)
-            elif message.photo:
-                context.bot.send_photo(chat_id=user_id, photo=message.photo[-1].file_id, caption=message.caption)
-            elif message.video:
-                context.bot.send_video(chat_id=user_id, video=message.video.file_id, caption=message.caption)
-            elif message.audio:
-                context.bot.send_audio(chat_id=user_id, audio=message.audio.file_id, caption=message.caption)
-            elif message.document:
-                context.bot.send_document(chat_id=user_id, document=message.document.file_id, caption=message.caption)
-            elif message.sticker:
-                context.bot.send_sticker(chat_id=user_id, sticker=message.sticker.file_id)
-        except Exception as e:
-            logger.error(f"Error sending announcement to {user_id}: {e}")
-    update.message.reply_text("Pengumuman telah dikirim.")
-    return ConversationHandler.END
-
-# Fungsi untuk menangani semua error
-def error(update: Update, context: CallbackContext):
-    logger.warning(f"Update {update} caused error {context.error}")
-
-# Menjalankan Bot
-def main():
+    # crt.sh
     try:
-        dispatcher.add_handler(CommandHandler("start", start))
-        dispatcher.add_handler(CallbackQueryHandler(button_callback))
-        dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, process_location_input))
-        dispatcher.add_handler(CommandHandler("cancel", cancel))
-        dispatcher.add_handler(MessageHandler(Filters.all, send_announcement), group=SEND_ANNOUNCEMENT[0])
-
-        # Handle error
-        dispatcher.add_error_handler(error)
-
-        updater.start_polling()
-        updater.idle()
+        url = f"https://crt.sh/?q=%25.{domain}&output=json"
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url) as r:
+                if r.status == 200:
+                    json_data = await r.json(content_type=None)
+                    for entry in json_data:
+                        name = entry.get("name_value", "")
+                        for item in name.split("\n"):
+                            if "*" not in item:
+                                results.add(item.strip())
     except Exception as e:
-        logger.error(f"Error: {e}")
+        logging.warning(f"crt.sh error: {e}")
+
+    # rapiddns.io
+    try:
+        url = f"https://rapiddns.io/subdomain/{domain}?full=1"
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url) as r:
+                if r.status == 200:
+                    html = await r.text()
+                    import re
+                    matches = re.findall(r'<td>([a-zA-Z0-9_.-]+\.' + re.escape(domain) + r')</td>', html)
+                    results.update(matches)
+    except Exception as e:
+        logging.warning(f"rapiddns error: {e}")
+
+    # hackertarget
+    try:
+        url = f"https://api.hackertarget.com/hostsearch/?q={domain}"
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url) as r:
+                if r.status == 200:
+                    txt = await r.text()
+                    for line in txt.splitlines():
+                        if "," in line:
+                            sub, _ = line.split(",")
+                            results.add(sub.strip())
+    except Exception as e:
+        logging.warning(f"hackertarget error: {e}")
+
+    return list(results)
 
 if __name__ == '__main__':
-    main()
+    executor.start_polling(dp, skip_updates=True)
