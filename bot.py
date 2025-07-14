@@ -70,16 +70,14 @@ async def process_domain(message: types.Message, state: FSMContext):
 
     loading_task = asyncio.create_task(animate_loading())
 
+    subs = []
     try:
         subs = await find_subdomains_all(domain)
     except Exception as e:
+        logging.error(f"Error during subdomain lookup: {e}")
+    finally:
         loading_done.set()
         await loading_task
-        await loading_msg.edit_text(f"❌ Terjadi kesalahan saat mencari:\n`{e}`", parse_mode="Markdown")
-        return
-
-    loading_done.set()
-    await loading_task
 
     if not subs:
         await loading_msg.edit_text(f"❗ Tidak ditemukan subdomain untuk `{domain}`.", parse_mode="Markdown")
@@ -120,12 +118,10 @@ async def handle_history(callback_query: types.CallbackQuery):
         msg += f"{i}. `{domain}` ({len(subs)} subdomain)\n"
     await bot.send_message(uid, msg, parse_mode="Markdown")
 
-# Fungsi gabungan dari crt.sh, rapiddns.io, dan hackertarget
 async def find_subdomains_all(domain):
     results = set()
     timeout = aiohttp.ClientTimeout(total=10)
 
-    # crt.sh
     try:
         url = f"https://crt.sh/?q=%25.{domain}&output=json"
         async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -140,7 +136,6 @@ async def find_subdomains_all(domain):
     except Exception as e:
         logging.warning(f"crt.sh error: {e}")
 
-    # rapiddns.io
     try:
         url = f"https://rapiddns.io/subdomain/{domain}?full=1"
         async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -153,7 +148,6 @@ async def find_subdomains_all(domain):
     except Exception as e:
         logging.warning(f"rapiddns error: {e}")
 
-    # hackertarget
     try:
         url = f"https://api.hackertarget.com/hostsearch/?q={domain}"
         async with aiohttp.ClientSession(timeout=timeout) as session:
