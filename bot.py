@@ -1,15 +1,13 @@
-
 import logging
 import asyncio
 import aiohttp
 from aiogram import Bot, Dispatcher, types
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, InputFile
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils import executor
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 import datetime
-import json
 
 API_TOKEN = '8024500353:AAHg3SUbXKN6AcWpyow0JdR_3Xz0Z1DGZUE'
 
@@ -23,7 +21,6 @@ class Form(StatesGroup):
 user_history = {}
 scan_results_cache = {}
 
-# Tombol utama
 def main_menu():
     keyboard = InlineKeyboardMarkup(row_width=1)
     keyboard.add(
@@ -34,14 +31,13 @@ def main_menu():
 
 @dp.message_handler(commands=['start'])
 async def start_command(message: types.Message):
-    
-await message.answer(
-    """👋 *Selamat datang di Subdomain Finder Bot!*
+    await message.answer(
+        "👋 *Selamat datang di Subdomain Finder Bot!*
 
-Gunakan tombol di bawah ini untuk mulai mencari subdomain dari domain apa pun.""",
-    reply_markup=main_menu()
-)
-
+"
+        "Gunakan tombol di bawah ini untuk mulai mencari subdomain dari domain apa pun.",
+        reply_markup=main_menu()
+    )
 
 @dp.callback_query_handler(lambda c: c.data == "scan")
 async def scan_start(callback_query: types.CallbackQuery):
@@ -56,7 +52,6 @@ async def handle_domain(message: types.Message, state: FSMContext):
     loading = await message.answer("🚀 Mencari subdomain...
 `[■□□□□□□] Loading...`")
 
-    # Animasi
     bars = ["[■□□□□□□]", "[■■□□□□□]", "[■■■□□□□]", "[■■■■□□□]", "[■■■■■□□]", "[■■■■■■□]", "[■■■■■■■]"]
     stop_event = asyncio.Event()
 
@@ -85,11 +80,10 @@ async def handle_domain(message: types.Message, state: FSMContext):
         await loading.edit_text("❌ Tidak ditemukan subdomain untuk domain tersebut.")
         return
 
-    # Deteksi WAF/CDN dan IP info
     ip_set = set()
     for sd in subdomains:
         try:
-            ip = await resolve_ip(sd)
+            ip = await resolve_ip(sd["host"])
             if ip:
                 sd["ip"] = ip
                 ip_set.add(ip)
@@ -100,11 +94,15 @@ async def handle_domain(message: types.Message, state: FSMContext):
     off = [s for s in subdomains if not is_proxy(s)]
     now = datetime.datetime.now().strftime("%d-%m-%Y %H:%M")
 
-    msg = f"*📄 Hasil Scan:* `{domain}`
-📅 {now}
-🔢 Total: {len(subdomains)} | Unik IP: {len(ip_set)}
+    msg = (
+        f"*📄 Hasil Scan:* `{domain}`
+"
+        f"📅 {now}
+"
+        f"🔢 Total: {len(subdomains)} | Unik IP: {len(ip_set)}
 
 "
+    )
     msg += "🌤️ *Proxy ON:*
 " + "
 ".join([f"• `{s['host']}` ({s.get('ip','-')})" for s in on[:20]]) + ("
@@ -152,10 +150,13 @@ async def handle_show(callback_query: types.CallbackQuery):
     on = [s for s in subdomains if is_proxy(s)]
     off = [s for s in subdomains if not is_proxy(s)]
 
-    msg = f"*📄 Riwayat Scan:* `{domain}`
-🔢 Total: {len(subdomains)}
+    msg = (
+        f"*📄 Riwayat Scan:* `{domain}`
+"
+        f"🔢 Total: {len(subdomains)}
 
 "
+    )
     msg += "🌤️ *Proxy ON:*
 " + "
 ".join([f"• `{s['host']}`" for s in on[:20]]) + ("
