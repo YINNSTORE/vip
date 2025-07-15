@@ -32,10 +32,10 @@ def main_menu():
 @dp.message_handler(commands=['start'])
 async def start_command(message: types.Message):
     await message.answer(
-    "👋 *Selamat datang di Subdomain Finder Bot!*\n\n"
-    "Gunakan tombol di bawah ini untuk mulai mencari subdomain dari domain apa pun.",
-    reply_markup=main_menu()
-)
+        "👋 *Selamat datang di Subdomain Finder Bot!*\n\n"
+        "Gunakan tombol di bawah ini untuk mulai mencari subdomain dari domain apa pun.",
+        reply_markup=main_menu()
+    )
 
 @dp.callback_query_handler(lambda c: c.data == "scan")
 async def scan_start(callback_query: types.CallbackQuery):
@@ -47,8 +47,7 @@ async def scan_start(callback_query: types.CallbackQuery):
 async def handle_domain(message: types.Message, state: FSMContext):
     await state.finish()
     domain = message.text.strip().lower()
-    loading = await message.answer("🚀 Mencari subdomain...
-`[■□□□□□□] Loading...`")
+    loading = await message.answer("🚀 Mencari subdomain...\n`[■□□□□□□] Loading...`")
 
     bars = ["[■□□□□□□]", "[■■□□□□□]", "[■■■□□□□]", "[■■■■□□□]", "[■■■■■□□]", "[■■■■■■□]", "[■■■■■■■]"]
     stop_event = asyncio.Event()
@@ -57,11 +56,11 @@ async def handle_domain(message: types.Message, state: FSMContext):
         i = 0
         while not stop_event.is_set():
             try:
-                await loading.edit_text(f"🚀 Mencari subdomain...
-`{bars[i % len(bars)]} Loading...`")
+                await loading.edit_text(f"🚀 Mencari subdomain...\n`{bars[i % len(bars)]} Loading...`")
                 await asyncio.sleep(0.4)
                 i += 1
-            except: pass
+            except:
+                pass
 
     animation_task = asyncio.create_task(animate())
 
@@ -86,31 +85,24 @@ async def handle_domain(message: types.Message, state: FSMContext):
                 sd["ip"] = ip
                 ip_set.add(ip)
                 sd["asn"], sd["country"] = await get_ip_info(ip)
-        except: pass
+        except:
+            pass
 
     on = [s for s in subdomains if is_proxy(s)]
     off = [s for s in subdomains if not is_proxy(s)]
     now = datetime.datetime.now().strftime("%d-%m-%Y %H:%M")
 
     msg = (
-        f"*📄 Hasil Scan:* `{domain}`
-"
-        f"📅 {now}
-"
-        f"🔢 Total: {len(subdomains)} | Unik IP: {len(ip_set)}
-
-"
+        f"*📄 Hasil Scan:* `{domain}`\n"
+        f"📅 {now}\n"
+        f"🔢 Total: {len(subdomains)} | Unik IP: {len(ip_set)}\n\n"
     )
-    msg += "🌤️ *Proxy ON:*
-" + "
-".join([f"• `{s['host']}` ({s.get('ip','-')})" for s in on[:20]]) + ("
-..." if len(on)>20 else "")
-    msg += "
-
-☁️ *Proxy OFF:*
-" + "
-".join([f"• `{s['host']}` ({s.get('ip','-')})" for s in off[:20]]) + ("
-..." if len(off)>20 else "")
+    msg += "🌤️ *Proxy ON:*\n" + "\n".join([f"• `{s['host']}` ({s.get('ip','-')})" for s in on[:20]])
+    if len(on) > 20:
+        msg += "\n..."
+    msg += "\n\n☁️ *Proxy OFF:*\n" + "\n".join([f"• `{s['host']}` ({s.get('ip','-')})" for s in off[:20]])
+    if len(off) > 20:
+        msg += "\n..."
 
     await loading.edit_text(msg)
 
@@ -149,22 +141,15 @@ async def handle_show(callback_query: types.CallbackQuery):
     off = [s for s in subdomains if not is_proxy(s)]
 
     msg = (
-        f"*📄 Riwayat Scan:* `{domain}`
-"
-        f"🔢 Total: {len(subdomains)}
-
-"
+        f"*📄 Riwayat Scan:* `{domain}`\n"
+        f"🔢 Total: {len(subdomains)}\n\n"
     )
-    msg += "🌤️ *Proxy ON:*
-" + "
-".join([f"• `{s['host']}`" for s in on[:20]]) + ("
-..." if len(on)>20 else "")
-    msg += "
-
-☁️ *Proxy OFF:*
-" + "
-".join([f"• `{s['host']}`" for s in off[:20]]) + ("
-..." if len(off)>20 else "")
+    msg += "🌤️ *Proxy ON:*\n" + "\n".join([f"• `{s['host']}`" for s in on[:20]])
+    if len(on) > 20:
+        msg += "\n..."
+    msg += "\n\n☁️ *Proxy OFF:*\n" + "\n".join([f"• `{s['host']}`" for s in off[:20]])
+    if len(off) > 20:
+        msg += "\n..."
 
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("⬅️ Kembali", callback_data="back"))
@@ -187,7 +172,8 @@ async def fetch_subdomains(domain):
                     if "," in line:
                         sub, _ = line.split(",", 1)
                         results.add(sub.strip())
-        except: pass
+        except:
+            pass
 
         try:
             async with session.get(f"https://dns.bufferover.run/dns?q=.{domain}") as r:
@@ -197,7 +183,8 @@ async def fetch_subdomains(domain):
                     part = rec.split(",")[-1]
                     if domain in part:
                         results.add(part.strip())
-        except: pass
+        except:
+            pass
 
     for host in sorted(results):
         out.append({"host": host})
@@ -212,7 +199,8 @@ async def resolve_ip(host):
                 for a in answer:
                     if a.get("type") == 1:
                         return a["data"]
-    except: return None
+    except:
+        return None
 
 async def get_ip_info(ip):
     try:
