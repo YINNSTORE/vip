@@ -21,6 +21,8 @@ class Form(StatesGroup):
 user_history = {}
 scan_results_cache = {}
 
+# MAIN MENU
+
 def main_menu():
     keyboard = InlineKeyboardMarkup(row_width=1)
     keyboard.add(
@@ -40,8 +42,9 @@ async def start_command(message: types.Message):
 @dp.callback_query_handler(lambda c: c.data == "scan")
 async def scan_start(callback_query: types.CallbackQuery):
     await bot.answer_callback_query(callback_query.id)
-    await bot.send_message(callback_query.from_user.id, "📥 Masukkan nama domain (contoh: `example.com`):")
+    msg = await bot.send_message(callback_query.from_user.id, "📥 Masukkan nama domain (contoh: `example.com`):")
     await Form.waiting_for_domain.set()
+    await delete_prev(callback_query)
 
 @dp.message_handler(state=Form.waiting_for_domain)
 async def handle_domain(message: types.Message, state: FSMContext):
@@ -78,15 +81,15 @@ async def handle_domain(message: types.Message, state: FSMContext):
         return
 
     ip_set = set()
-    for sd in subdomains:
-        try:
-            ip = await resolve_ip(sd["host"])
-            if ip:
-                sd["ip"] = ip
-                ip_set.add(ip)
-                sd["asn"], sd["country"] = await get_ip_info(ip)
-        except:
-            pass
+    async with aiohttp.ClientSession() as session:
+        for sd in subdomains:
+            try:
+                ip = await resolve_ip(session, sd["host"])
+                if ip:
+                    sd["ip"] = ip
+                    ip_set.add(ip)
+            except:
+                pass
 
     on = [s for s in subdomains if is_proxy(s)]
     off = [s for s in subdomains if not is_proxy(s)]
@@ -97,8 +100,8 @@ async def handle_domain(message: types.Message, state: FSMContext):
         f"📅 {now}\n"
         f"🔢 Total: {len(subdomains)} | Unik IP: {len(ip_set)}\n\n"
     )
-    msg += "🌤️ *Proxy ON:*\n" + "\n".join([f"• `{s['host']}` ({s.get('ip','-')})" for s in on[:20]]) + ("\n..." if len(on)>20 else "")
-    msg += "\n\n☁️ *Proxy OFF:*\n" + "\n".join([f"• `{s['host']}` ({s.get('ip','-')})" for s in off[:20]]) + ("\n..." if len(off)>20 else "")
+    msg += "🌤️ *Proxy ON:*\n" + "\n".join([f"• `{s['host']}` ({s.get('ip','-')})" for s in on[:20]]) + ("\n..." if len(on) > 20 else "")
+    msg += "\n\n☁️ *Proxy OFF:*\n" + "\n".join([f"• `{s['host']}` ({s.get('ip','-')})" for s in off[:20]]) + ("\n..." if len(off) > 20 else "")
 
     await loading.edit_text(msg)
 
@@ -114,6 +117,8 @@ async def handle_domain(message: types.Message, state: FSMContext):
 async def show_history(callback_query: types.CallbackQuery):
     uid = callback_query.from_user.id
     history = user_history.get(uid, [])
+    await delete_prev(callback_query)
+
     if not history:
         await bot.send_message(uid, "📭 Belum ada riwayat.", reply_markup=main_menu())
         return
@@ -126,9 +131,11 @@ async def show_history(callback_query: types.CallbackQuery):
 
 @dp.callback_query_handler(lambda c: c.data.startswith("show:"))
 async def handle_show(callback_query: types.CallbackQuery):
+    await delete_prev(callback_query)
     uid = callback_query.from_user.id
     domain = callback_query.data.split(":")[1]
     subdomains = scan_results_cache.get((uid, domain), [])
+
     if not subdomains:
         await bot.send_message(uid, "❌ Data tidak ditemukan.")
         return
@@ -140,8 +147,8 @@ async def handle_show(callback_query: types.CallbackQuery):
         f"*📄 Riwayat Scan:* `{domain}`\n"
         f"🔢 Total: {len(subdomains)}\n\n"
     )
-    msg += "🌤️ *Proxy ON:*\n" + "\n".join([f"• `{s['host']}`" for s in on[:20]]) + ("\n..." if len(on)>20 else "")
-    msg += "\n\n☁️ *Proxy OFF:*\n" + "\n".join([f"• `{s['host']}`" for s in off[:20]]) + ("\n..." if len(off)>20 else "")
+    msg += "🌤️ *Proxy ON:*\n" + "\n".join([f"• `{s['host']}`" for s in on[:20]]) + ("\n..." if len(on) > 20 else "")
+    msg += "\n\n☁️ *Proxy OFF:*\n" + "\n".join([f"• `{s['host']}`" for s in off[:20]]) + ("\n..." if len(off) > 20 else "")
 
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("⬅️ Kembali", callback_data="back"))
@@ -149,13 +156,17 @@ async def handle_show(callback_query: types.CallbackQuery):
 
 @dp.callback_query_handler(lambda c: c.data == "back")
 async def handle_back(callback_query: types.CallbackQuery):
-    await bot.answer_callback_query(callback_query.id)
-    await bot.send_message(callback_query.from_user.id, "🏠 Kembali ke menu utama:", reply_markup=main_menu())
+    await delete_prev(callback_query)
+    await bot.send_message(callback_query.from_user.id, "🏠 *Kembali ke menu utama:*", reply_markup=main_menu())
+
+def is_proxy(sd):
+    keywords = ["cdn", "cloud", "akamai", "edge", "cache"]
+    return any(k in sd["host"] for k in keywords)
 
 async def fetch_subdomains(domain):
     results = set()
     out = []
-    timeout = aiohttp.ClientTimeout(total=15)
+    timeout = aiohttp.ClientTimeout(total=10)
     async with aiohttp.ClientSession(timeout=timeout) as session:
         try:
             async with session.get(f"https://api.hackertarget.com/hostsearch/?q={domain}") as r:
@@ -170,8 +181,7 @@ async def fetch_subdomains(domain):
         try:
             async with session.get(f"https://dns.bufferover.run/dns?q=.{domain}") as r:
                 json_data = await r.json()
-                records = json_data.get("FDNS_A", [])
-                for rec in records:
+                for rec in json_data.get("FDNS_A", []):
                     part = rec.split(",")[-1]
                     if domain in part:
                         results.add(part.strip())
@@ -182,30 +192,21 @@ async def fetch_subdomains(domain):
         out.append({"host": host})
     return out
 
-async def resolve_ip(host):
+async def resolve_ip(session, host):
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(f"https://dns.google/resolve?name={host}&type=A") as r:
-                json_data = await r.json()
-                answer = json_data.get("Answer", [])
-                for a in answer:
-                    if a.get("type") == 1:
-                        return a["data"]
+        async with session.get(f"https://dns.google/resolve?name={host}&type=A") as r:
+            json_data = await r.json()
+            for a in json_data.get("Answer", []):
+                if a.get("type") == 1:
+                    return a["data"]
     except:
         return None
 
-async def get_ip_info(ip):
+async def delete_prev(callback_query):
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(f"http://ip-api.com/json/{ip}?fields=as,country") as r:
-                data = await r.json()
-                return data.get("as", "N/A"), data.get("country", "Unknown")
+        await bot.delete_message(callback_query.from_user.id, callback_query.message.message_id)
     except:
-        return "N/A", "Unknown"
-
-def is_proxy(sd):
-    keywords = ["cdn", "cloud", "akamai", "edge", "cache"]
-    return any(k in sd["host"] for k in keywords)
+        pass
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
