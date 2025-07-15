@@ -97,12 +97,8 @@ async def handle_domain(message: types.Message, state: FSMContext):
         f"📅 {now}\n"
         f"🔢 Total: {len(subdomains)} | Unik IP: {len(ip_set)}\n\n"
     )
-    msg += "🌤️ *Proxy ON:*\n" + "\n".join([f"• `{s['host']}` ({s.get('ip','-')})" for s in on[:20]])
-    if len(on) > 20:
-        msg += "\n..."
-    msg += "\n\n☁️ *Proxy OFF:*\n" + "\n".join([f"• `{s['host']}` ({s.get('ip','-')})" for s in off[:20]])
-    if len(off) > 20:
-        msg += "\n..."
+    msg += "🌤️ *Proxy ON:*\n" + "\n".join([f"• `{s['host']}` ({s.get('ip','-')})" for s in on[:20]]) + ("\n..." if len(on)>20 else "")
+    msg += "\n\n☁️ *Proxy OFF:*\n" + "\n".join([f"• `{s['host']}` ({s.get('ip','-')})" for s in off[:20]]) + ("\n..." if len(off)>20 else "")
 
     await loading.edit_text(msg)
 
@@ -144,12 +140,8 @@ async def handle_show(callback_query: types.CallbackQuery):
         f"*📄 Riwayat Scan:* `{domain}`\n"
         f"🔢 Total: {len(subdomains)}\n\n"
     )
-    msg += "🌤️ *Proxy ON:*\n" + "\n".join([f"• `{s['host']}`" for s in on[:20]])
-    if len(on) > 20:
-        msg += "\n..."
-    msg += "\n\n☁️ *Proxy OFF:*\n" + "\n".join([f"• `{s['host']}`" for s in off[:20]])
-    if len(off) > 20:
-        msg += "\n..."
+    msg += "🌤️ *Proxy ON:*\n" + "\n".join([f"• `{s['host']}`" for s in on[:20]]) + ("\n..." if len(on)>20 else "")
+    msg += "\n\n☁️ *Proxy OFF:*\n" + "\n".join([f"• `{s['host']}`" for s in off[:20]]) + ("\n..." if len(off)>20 else "")
 
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("⬅️ Kembali", callback_data="back"))
