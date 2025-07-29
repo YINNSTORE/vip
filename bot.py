@@ -391,7 +391,7 @@ app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_adbypass_
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_iplookup_input))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_ssl_input))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_subdomain_input))
-app.add_handler(MessageHandler((filters.TEXT | filters.PHOTO | filters.STICKER) & ~filters.COMMAND, handle_broadcast))
+app.add_handler(MessageHandler((filters.TEXT | filters.PHOTO | filters.Document) & ~filters.COMMAND, handle_broadcast))
 
 print("🤖 Bot berjalan...")
 app.run_polling()
