@@ -1,4 +1,14 @@
 import logging
+import sys
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stdout
+)
+
+print("🚀 Bot dimulai...")  # agar tahu kalau script jalan
+import logging
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -224,3 +234,9 @@ async def ssl_checker_guide(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ 𝙆𝙚𝙢𝙗𝙖𝙡𝙞", callback_data="ssl_checker_menu")]])
     )
+try:
+    application.run_polling()
+except Exception as e:
+    print(f"❌ Terjadi error: {e}")
+    import time
+    time.sleep(10)
