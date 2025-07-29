@@ -72,7 +72,7 @@ async def schedule_delete(context, chat_id, msg_id, delay=8):
 def main_menu():
     keyboard = [
         [InlineKeyboardButton("📜 All Menu", callback_data="all_menu")],
-        [InlineKeyboardButton("📞 Contact Admin", url="https://t.me/YinnVpn")]
+        [InlineKeyboardButton("📞 Contact Admin", url="https://t.me/yinnprovpn")]
     ]
     return InlineKeyboardMarkup(keyboard)
 
