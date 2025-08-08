@@ -1,208 +1,110 @@
 import logging
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 import requests
+import re
+from aiogram import Bot, Dispatcher, types
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.utils import executor
 
-# ==========================
-# 🔹 Konfigurasi BOT
-# ==========================
-TOKEN = "7414492608:AAEipio5iqjhoKC0QCoGoIe7HNUiLhAtQHg"
-ADMIN_ID = 6353421952
-IPINFO_API_KEY = "210a01b5fe3d19"  # ← API IP Lookup sudah diisi
+# ====== CONFIG ======
+BOT_TOKEN = "8219112088:AAGKuWaiRrSeHwUK_8wCeuDY2GHFYkFsLdI"  # Ganti token dari @BotFather
 
-# ==========================
-# 🔹 Logging
-# ==========================
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
+# ====== SETUP ======
+logging.basicConfig(level=logging.INFO)
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher(bot)
 
-# ==========================
-# 🔹 Menu Utama
-# ==========================
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [
-        [InlineKeyboardButton("🌐 𝙄𝙋 𝙇𝙤𝙤𝙠𝙪𝙥", callback_data='ip_lookup_menu')],
-        [InlineKeyboardButton("🛡️ 𝙋𝙧𝙤𝙭𝙮 𝘾𝙝𝙚𝙘𝙠𝙚𝙧", callback_data='proxy_checker_menu')],
-        [InlineKeyboardButton("🔗 𝘼𝙙 𝘽𝙮𝙥𝙖𝙨𝙨", callback_data='adbypass_menu')],
-        [InlineKeyboardButton("🌍 𝙎𝙪𝙗𝙙𝙤𝙢𝙖𝙞𝙣 𝙁𝙞𝙣𝙙𝙚𝙧", callback_data='subdomain_finder_menu')],
-        [InlineKeyboardButton("👑 𝘼𝙙𝙢𝙞𝙣", callback_data='admin_menu')],
-        [InlineKeyboardButton("📞 𝘾𝙤𝙣𝙩𝙖𝙘𝙩", url="https://t.me/yinnprovpn")]
-    ]
-    await update.message.reply_text(
-        "🤖 𝐖𝐞𝐥𝐜𝐨𝐦𝐞 𝐭𝐨 𝐌𝐲 𝐓𝐨𝐨𝐥𝐬 𝐁𝐨𝐭\n\nSilahkan pilih menu di bawah ⬇️",
-        reply_markup=InlineKeyboardMarkup(keyboard)
+# ====== BUTTONS ======
+def menu_buttons():
+    kb = InlineKeyboardMarkup(row_width=2)
+    kb.add(
+        InlineKeyboardButton("📥 TikTok", callback_data="tiktok"),
+        InlineKeyboardButton("▶️ YouTube", callback_data="youtube"),
+        InlineKeyboardButton("📷 Instagram", callback_data="instagram"),
+        InlineKeyboardButton("📘 Facebook", callback_data="facebook"),
+    )
+    return kb
+
+# ====== TIKTOK API (TIKMATE) ======
+def download_tiktok(url):
+    match = re.search(r"/video/(\d+)", url)
+    if not match:
+        return None
+
+    video_id = match.group(1)
+    api_url = f"https://api.tikmate.app/api/lookup?id={video_id}"
+    try:
+        res = requests.get(api_url).json()
+        if "token" not in res:
+            return None
+
+        video_url = f"https://tikmate.app/download/{res['token']}/{res['id']}.mp4"
+        return {
+            "title": "Video by @" + res.get("author_name", "unknown"),
+            "video_url": video_url,
+            "platform": "TikTok"
+        }
+    except:
+        return None
+
+# ====== SAVEFROM API (YT/FB/IG) ======
+def download_savefrom(url):
+    try:
+        api_url = "https://api.savefrom.net/1/info"
+        res = requests.get(api_url, params={"url": url, "lang": "en"}).json()
+
+        if res.get("url") and res.get("meta"):
+            return {
+                "title": res["meta"].get("title", "Untitled"),
+                "video_url": res["url"],
+                "platform": res["meta"].get("source", "Unknown")
+            }
+        return None
+    except:
+        return None
+
+# ====== COMMAND /start ======
+@dp.message_handler(commands=["start"])
+async def start(msg: types.Message):
+    await msg.reply(
+        "👋 *Selamat datang di Video Downloader Bot!*\n\nKamu bisa kirim link langsung atau pilih platform dulu:",
+        reply_markup=menu_buttons(),
+        parse_mode="Markdown"
     )
 
-# ==========================
-# 🔹 Submenu IP Lookup
-# ==========================
-async def ip_lookup_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    keyboard = [
-        [InlineKeyboardButton("🔎 𝘾𝙚𝙠 𝙄𝙋", callback_data='ip_lookup')],
-        [InlineKeyboardButton("📖 𝙋𝙖𝙣𝙙𝙪𝙖𝙣", callback_data='ip_lookup_guide')],
-        [InlineKeyboardButton("⬅️ 𝙆𝙚𝙢𝙗𝙖𝙡𝙞", callback_data='main_menu')]
-    ]
-    await query.edit_message_text("🌐 𝐈𝐏 𝐋𝐨𝐨𝐤𝐮𝐩 𝐌𝐞𝐧𝐮", reply_markup=InlineKeyboardMarkup(keyboard))
+# ====== BUTTON HANDLER ======
+@dp.callback_query_handler(lambda c: c.data in ["tiktok", "youtube", "instagram", "facebook"])
+async def handle_button(callback_query: types.CallbackQuery):
+    platform = callback_query.data
+    await bot.send_message(callback_query.from_user.id, f"✅ Sekarang kirim link dari *{platform.title()}*", parse_mode="Markdown")
 
-async def ip_lookup_guide(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_text(
-        "📖 𝐏𝐚𝐧𝐝𝐮𝐚𝐧 𝐈𝐏 𝐋𝐨𝐨𝐤𝐮𝐩:\n\n"
-        "1️⃣ Klik 'Cek IP'\n"
-        "2️⃣ Masukkan IP target\n"
-        "3️⃣ Bot akan menampilkan detail lokasi, ISP, dan lainnya.\n\n"
-        "Gunakan fitur ini dengan bijak ✅",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ 𝙆𝙚𝙢𝙗𝙖𝙡𝙞", callback_data='ip_lookup_menu')]])
-    )
+# ====== LINK HANDLER ======
+@dp.message_handler()
+async def handle_link(msg: types.Message):
+    url = msg.text.strip()
 
-async def ip_lookup(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_text("🔎 𝐊𝐢𝐫𝐢𝐦 𝐈𝐏 𝐚𝐝𝐝𝐫𝐞𝐬𝐬 𝐲𝐚𝐧𝐠 𝐢𝐧𝐠𝐢𝐧 𝐝𝐢 𝐥𝐢𝐡𝐚𝐭:")
+    if "tiktok.com" in url:
+        await msg.reply("⏳ Mengambil video dari TikTok...")
+        result = download_tiktok(url)
+    elif any(x in url for x in ["youtu", "facebook.com", "fb.watch", "instagram.com", "reel"]):
+        await msg.reply("⏳ Mengambil video dari SaveFrom...")
+        result = download_savefrom(url)
+    else:
+        await msg.reply("❗ Kirim link dari TikTok, YouTube, Facebook, atau Instagram.")
+        return
 
-    context.user_data["awaiting_ip"] = True
-
-async def handle_ip_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if context.user_data.get("awaiting_ip"):
-        ip = update.message.text
-        url = f"https://ipinfo.io/{ip}?token={IPINFO_API_KEY}"
+    if result:
         try:
-            data = requests.get(url).json()
-            hasil = (
-                f"🌐 **𝐈𝐏 𝐈𝐧𝐟𝐨:**\n"
-                f"📍 Lokasi: {data.get('city')}, {data.get('region')}, {data.get('country')}\n"
-                f"🏢 ISP: {data.get('org')}\n"
-                f"🌎 Koordinat: {data.get('loc')}\n"
+            await bot.send_video(
+                msg.chat.id,
+                video=result["video_url"],
+                caption=f"🎬 *{result['title']}*\n📌 Platform: {result['platform']}",
+                parse_mode="Markdown"
             )
-            await update.message.reply_text(hasil)
         except:
-            await update.message.reply_text("❌ Gagal mengambil data IP.")
-        context.user_data["awaiting_ip"] = False
+            await msg.reply(f"✅ Video terlalu besar dikirim.\n🔗 [Klik untuk download langsung]({result['video_url']})", parse_mode="Markdown", disable_web_page_preview=True)
+    else:
+        await msg.reply("❌ Gagal mengambil video. Link tidak valid atau diblokir.")
 
-# ==========================
-# 🔹 Submenu Admin
-# ==========================
-async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    keyboard = [
-        [InlineKeyboardButton("📢 𝘽𝙧𝙤𝙖𝙙𝙘𝙖𝙨𝙩", callback_data='broadcast')],
-        [InlineKeyboardButton("📖 𝙋𝙖𝙣𝙙𝙪𝙖𝙣", callback_data='admin_guide')],
-        [InlineKeyboardButton("⬅️ 𝙆𝙚𝙢𝙗𝙖𝙡𝙞", callback_data='main_menu')]
-    ]
-    await query.edit_message_text("👑 𝐀𝐝𝐦𝐢𝐧 𝐌𝐞𝐧𝐮", reply_markup=InlineKeyboardMarkup(keyboard))
-
-# ==========================
-# 🔹 Submenu Proxy Checker
-# ==========================
-async def proxy_checker_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    keyboard = [
-        [InlineKeyboardButton("🔍 𝘾𝙚𝙠 𝙋𝙧𝙤𝙭𝙮", callback_data='proxy_checker')],
-        [InlineKeyboardButton("📖 𝙋𝙖𝙣𝙙𝙪𝙖𝙣", callback_data='proxy_guide')],
-        [InlineKeyboardButton("⬅️ 𝙆𝙚𝙢𝙗𝙖𝙡𝙞", callback_data='main_menu')]
-    ]
-    await query.edit_message_text("🛡️ 𝐌𝐞𝐧𝐮 𝐏𝐫𝐨𝐱𝐲 𝐂𝐡𝐞𝐜𝐤𝐞𝐫", reply_markup=InlineKeyboardMarkup(keyboard))
-
-async def proxy_guide(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_text(
-        "📖 𝐏𝐚𝐧𝐝𝐮𝐚𝐧 𝐏𝐫𝐨𝐱𝐲 𝐂𝐡𝐞𝐜𝐤𝐞𝐫:\n\n"
-        "1️⃣ Klik 'Cek Proxy'\n"
-        "2️⃣ Masukkan IP dan Port\n"
-        "3️⃣ Bot akan mendeteksi apakah proxy aktif atau tidak ✅",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ 𝙆𝙚𝙢𝙗𝙖𝙡𝙞", callback_data='proxy_checker_menu')]])
-    )
-
-# ==========================
-# 🔹 Submenu Ad Bypass
-# ==========================
-async def adbypass_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    keyboard = [
-        [InlineKeyboardButton("🔗 𝘽𝙮𝙥𝙖𝙨𝙨 𝙇𝙞𝙣𝙠", callback_data='adbypass')],
-        [InlineKeyboardButton("📖 𝙋𝙖𝙣𝙙𝙪𝙖𝙣", callback_data='adbypass_guide')],
-        [InlineKeyboardButton("⬅️ 𝙆𝙚𝙢𝙗𝙖𝙡𝙞", callback_data='main_menu')]
-    ]
-    await query.edit_message_text("🔗 𝐀𝐝 𝐁𝐲𝐩𝐚𝐬𝐬 𝐌𝐞𝐧𝐮", reply_markup=InlineKeyboardMarkup(keyboard))
-
-async def adbypass_guide(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_text(
-        "📖 𝐏𝐚𝐧𝐝𝐮𝐚𝐧 𝐀𝐝 𝐁𝐲𝐩𝐚𝐬𝐬:\n\n"
-        "1️⃣ Klik 'Bypass Link'\n"
-        "2️⃣ Masukkan link yang ingin dibuka\n"
-        "3️⃣ Bot akan mencoba melewati halaman iklan otomatis ✅",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ 𝙆𝙚𝙢𝙗𝙖𝙡𝙞", callback_data='adbypass_menu')]])
-    )
-
-# ==========================
-# 🔹 Submenu Subdomain Finder
-# ==========================
-async def subdomain_finder_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    keyboard = [
-        [InlineKeyboardButton("🌍 𝘾𝙖𝙧𝙞 𝙎𝙪𝙗𝙙𝙤𝙢𝙖𝙞𝙣", callback_data='subdomain_finder')],
-        [InlineKeyboardButton("📖 𝙋𝙖𝙣𝙙𝙪𝙖𝙣", callback_data='subdomain_guide')],
-        [InlineKeyboardButton("⬅️ 𝙆𝙚𝙢𝙗𝙖𝙡𝙞", callback_data='main_menu')]
-    ]
-    await query.edit_message_text("🌍 𝐒𝐮𝐛𝐝𝐨𝐦𝐚𝐢𝐧 𝐅𝐢𝐧𝐝𝐞𝐫 𝐌𝐞𝐧𝐮", reply_markup=InlineKeyboardMarkup(keyboard))
-
-async def subdomain_guide(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_text(
-        "📖 𝐏𝐚𝐧𝐝𝐮𝐚𝐧 𝐒𝐮𝐛𝐝𝐨𝐦𝐚𝐢𝐧 𝐅𝐢𝐧𝐝𝐞𝐫:\n\n"
-        "1️⃣ Klik 'Cari Subdomain'\n"
-        "2️⃣ Masukkan domain target (contoh: site.com)\n"
-        "3️⃣ Bot akan menampilkan daftar subdomain yang ditemukan ✅",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ 𝙆𝙚𝙢𝙗𝙖𝙡𝙞", callback_data='subdomain_finder_menu')]])
-    )
-
-# ==========================
-# 🔹 Callback untuk Main Menu
-# ==========================
-async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await start(update, context)
-
-# ==========================
-# 🔹 Handler & Main Function
-# ==========================
-def main():
-    app = ApplicationBuilder().token(TOKEN).build()
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(ip_lookup_menu, pattern='ip_lookup_menu'))
-    app.add_handler(CallbackQueryHandler(ip_lookup, pattern='ip_lookup'))
-    app.add_handler(CallbackQueryHandler(ip_lookup_guide, pattern='ip_lookup_guide'))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_ip_input))
-
-    app.add_handler(CallbackQueryHandler(proxy_checker_menu, pattern='proxy_checker_menu'))
-    app.add_handler(CallbackQueryHandler(proxy_guide, pattern='proxy_guide'))
-
-    app.add_handler(CallbackQueryHandler(adbypass_menu, pattern='adbypass_menu'))
-    app.add_handler(CallbackQueryHandler(adbypass_guide, pattern='adbypass_guide'))
-
-    app.add_handler(CallbackQueryHandler(subdomain_finder_menu, pattern='subdomain_finder_menu'))
-    app.add_handler(CallbackQueryHandler(subdomain_guide, pattern='subdomain_guide'))
-
-    app.add_handler(CallbackQueryHandler(admin_menu, pattern='admin_menu'))
-    app.add_handler(CallbackQueryHandler(main_menu, pattern='main_menu'))
-
-    print("🤖 Bot is running...")
-    app.run_polling()
-
+# ====== START BOT ======
 if __name__ == "__main__":
-    main()
+    executor.start_polling(dp, skip_updates=True)
