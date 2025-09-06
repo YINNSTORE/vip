@@ -1,32 +1,14 @@
-# nokos_full_buttons.py
-"""
-Nokos OTP Bot - Versi Full (Semua Tombol, Bahasa Indonesia)
-- Semua menu via InlineKeyboard (User + Admin step-by-step)
-- DummyProvider mensimulasikan nomor & OTP (aman untuk testing)
-- SQLite menyimpan users, numbers, messages, saldo/limit
-- Admin actions via tombol: Add Saldo, Set Premium, Broadcast, Daftar User
-- Pemrosesan input admin (mis. jumlah topup, pesan broadcast) via message hooks
-"""
+# nokos_full_bot.py (versi dengan OTP auto masuk)
 
 import asyncio
 import logging
 import random
 import sqlite3
 from datetime import datetime
-from typing import Callable, Dict, List, Optional, Tuple
-
-from telegram import (
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    Update,
-)
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
-    Application,
-    CommandHandler,
-    CallbackQueryHandler,
-    MessageHandler,
-    ContextTypes,
-    filters,
+    Application, CallbackQueryHandler, CommandHandler,
+    ContextTypes, MessageHandler, filters
 )
 
 # ---------------- CONFIG ----------------
@@ -34,9 +16,8 @@ BOT_TOKEN = "8024500353:AAHg3SUbXKN6AcWpyow0JdR_3Xz0Z1DGZUE"
 ADMIN_ID = 6353421952
 DEV_USERNAME = "@yinnprovpn"
 BANNER_URL = "https://awy.my.id/uploads/ini-linkfoto-baner.jpeg"
-DB_FILE = "nokos_full_bot.db"
+DB_FILE = "nokos_bot.db"
 
-# ---------------- LOGGING ----------------
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -58,7 +39,6 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
         number TEXT,
-        provider TEXT,
         active INTEGER DEFAULT 1,
         created_at TEXT
     )""")
@@ -72,7 +52,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-def get_user(user_id:int) -> Optional[Tuple]:
+def get_user(user_id):
     conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
     cur.execute("SELECT user_id, username, role, status, limit_count FROM users WHERE user_id=?", (user_id,))
@@ -80,7 +60,7 @@ def get_user(user_id:int) -> Optional[Tuple]:
     conn.close()
     return r
 
-def ensure_user(user_id:int, username:str):
+def ensure_user(user_id, username):
     conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
     if not get_user(user_id):
@@ -91,22 +71,14 @@ def ensure_user(user_id:int, username:str):
         conn.commit()
     conn.close()
 
-def list_users(limit:int=50) -> List[Tuple]:
-    conn = sqlite3.connect(DB_FILE)
-    cur = conn.cursor()
-    cur.execute("SELECT user_id, username, role, status, limit_count FROM users ORDER BY rowid DESC LIMIT ?", (limit,))
-    rows = cur.fetchall()
-    conn.close()
-    return rows
-
-def update_user_limit(user_id:int, new_limit:Optional[int]):
+def update_user_limit(user_id, new_limit):
     conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
     cur.execute("UPDATE users SET limit_count=? WHERE user_id=?", (new_limit, user_id))
     conn.commit()
     conn.close()
 
-def set_user_status(user_id:int, status:str):
+def set_user_status(user_id, status):
     conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
     if status == "premium":
@@ -116,410 +88,258 @@ def set_user_status(user_id:int, status:str):
     conn.commit()
     conn.close()
 
-# numbers & messages
-def add_number_for_user(user_id:int, number:str, provider:str):
+def list_all_users():
     conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
-    cur.execute("INSERT INTO numbers (user_id, number, provider, active, created_at) VALUES (?,?,?,?,?)",
-                (user_id, number, provider, 1, datetime.utcnow().isoformat()))
+    cur.execute("SELECT user_id, username, status, limit_count FROM users ORDER BY rowid DESC LIMIT 20")
+    rows = cur.fetchall()
+    conn.close()
+    return rows
+
+def add_number(user_id, number):
+    conn = sqlite3.connect(DB_FILE)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO numbers (user_id, number, active, created_at) VALUES (?,?,1,?)",
+                (user_id, number, datetime.now().isoformat()))
     conn.commit()
     nid = cur.lastrowid
     conn.close()
     return nid
 
-def get_active_number(user_id:int):
+def get_active_number(user_id):
     conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
-    cur.execute("SELECT id, number, provider FROM numbers WHERE user_id=? AND active=1 ORDER BY id DESC LIMIT 1", (user_id,))
+    cur.execute("SELECT id, number FROM numbers WHERE user_id=? AND active=1", (user_id,))
     r = cur.fetchone()
     conn.close()
     return r
 
-def deactivate_number_by_id(nid:int):
+def deactivate_number(user_id):
     conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
-    cur.execute("UPDATE numbers SET active=0 WHERE id=?", (nid,))
+    cur.execute("UPDATE numbers SET active=0 WHERE user_id=?", (user_id,))
     conn.commit()
     conn.close()
 
-def add_message(number_id:int, text:str):
+def save_message(number_id, text):
     conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
     cur.execute("INSERT INTO messages (number_id, text, received_at) VALUES (?,?,?)",
-                (number_id, text, datetime.utcnow().isoformat()))
+                (number_id, text, datetime.now().isoformat()))
     conn.commit()
     conn.close()
 
-def list_messages_for_user(user_id:int) -> List[Tuple]:
+def list_messages(user_id):
     conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
     cur.execute("""
-       SELECT m.text, m.received_at, n.number
-       FROM messages m
-       JOIN numbers n ON m.number_id = n.id
-       WHERE n.user_id = ?
-       ORDER BY m.id DESC
-       LIMIT 100
+        SELECT m.text, m.received_at FROM messages m
+        JOIN numbers n ON m.number_id=n.id
+        WHERE n.user_id=? ORDER BY m.id DESC LIMIT 5
     """, (user_id,))
     rows = cur.fetchall()
     conn.close()
     return rows
 
-# ---------------- PROVIDER (Dummy) ----------------
+# ---------------- OTP PROVIDER SIMULASI ----------------
 class DummyProvider:
     def __init__(self):
-        self.pool = [f"+10000000{str(i).zfill(3)}" for i in range(1, 401)]
-        self._tasks: Dict[str, asyncio.Task] = {}
+        self.pool = [f"+10000000{str(i).zfill(3)}" for i in range(1, 201)]
+        self._tasks = {}
 
-    async def list_available_numbers(self) -> List[str]:
+    async def list_numbers(self):
         await asyncio.sleep(0.05)
-        # safe: return random subset
-        return random.sample(self.pool, k=8)
+        return random.sample(self.pool, k=5)
 
-    async def start_monitor(self, number:str, on_message: Callable[[str], None]):
-        # simulate random OTP messages; on_message is sync or async wrapper
-        async def sim():
-            # first message delay a bit
-            await asyncio.sleep(random.randint(5, 12))
+    async def start_monitor(self, number_id, number, user_id, context: ContextTypes.DEFAULT_TYPE):
+        async def sim_loop():
             while True:
-                await asyncio.sleep(random.randint(8, 25))
+                await asyncio.sleep(random.randint(10, 20))
                 otp = f"{random.randint(100000, 999999)}"
-                text = f"Kode verifikasi: {otp}\nJangan berikan ke siapa pun."
+                text = f"Kode OTP untuk {number}: {otp}"
+                save_message(number_id, text)
                 try:
-                    on_message(text)
-                except Exception:
+                    await context.bot.send_message(chat_id=user_id, text=f"📩 OTP Masuk:\n{text}")
+                except:
                     pass
-        task = asyncio.create_task(sim())
-        self._tasks[number] = task
+        task = asyncio.create_task(sim_loop())
+        self._tasks[user_id] = task
         return task
 
-    def stop(self, number:str):
-        t = self._tasks.get(number)
+    def stop(self, user_id):
+        t = self._tasks.get(user_id)
         if t:
             t.cancel()
 
 provider = DummyProvider()
-# map number_id -> task
-monitor_map: Dict[int, asyncio.Task] = {}
 
-# ---------------- BUILD UI ----------------
-def build_dashboard_text(user_id:int, name:str) -> str:
+# ---------------- DASHBOARD ----------------
+def build_dashboard(user_id, name):
     u = get_user(user_id)
-    role = u[2] if u else "member"
     status = u[3] if u else "free"
     limit = u[4] if u else 3
-    txt = (
-f"👋 Halo {name}\n"
+    role = "admin" if user_id == ADMIN_ID else "member"
+    return (
+f"👋 Hai {name}\n"
 "╭━━━〔 DASHBOARD 〕━━━╮\n"
-f"• Bot Name : Nokos OTP Bot\n"
-f"• Versi    : 1.0\n"
-f"• Dev      : {DEV_USERNAME}\n"
+"• Bot : Nokos OTP Bot\n"
+f"• Dev : {DEV_USERNAME}\n"
 "╰━━━━━━━━━━━━━━━━━━━╯\n\n"
 "╭━━━〔 INFO AKUN 〕━━━╮\n"
-f"• Nama     : {name}\n"
-f"• Role     : {role}\n"
-f"• Status   : {status}\n"
-f"• Limit    : {limit if limit is not None else 'Unlimited'}\n"
+f"• Status : {status}\n"
+f"• Role   : {role}\n"
+f"• Limit  : {limit if limit else 'Unlimited'}\n"
 "╰━━━━━━━━━━━━━━━━━━━╯\n\n"
-"ℹ️ Fungsi Bot :\n"
-"• 📱 Ambil Nomor (simulasi) untuk verifikasi (testing)\n"
-"• 📜 Lihat Riwayat OTP yang masuk\n"
-"• 🗑 Hapus nomor aktif\n"
-"• 👨‍💻 Admin: kelola user & broadcast via tombol\n"
+"ℹ️ Fungsi Bot:\n"
+"• Ambil nomor dummy (simulasi)\n"
+"• Terima OTP otomatis\n"
+"• Admin bisa kelola user via tombol\n"
 )
-    return txt
 
-def build_main_keyboard(is_admin:bool=False) -> InlineKeyboardMarkup:
+def build_keyboard(is_admin=False):
     rows = [
         [InlineKeyboardButton("📱 Ambil Nomor", callback_data="get_number")],
-        [InlineKeyboardButton("📜 Riwayat OTP", callback_data="list_otp"),
-         InlineKeyboardButton("🗑 Hapus Nomor", callback_data="delete_number")],
-        [InlineKeyboardButton("📋 Salin Nomor Aktif", callback_data="copy_active"),
-         InlineKeyboardButton("👥 Undang Teman", callback_data="invite")],
-        [InlineKeyboardButton("🛠 Tools", callback_data="tools"),
-         InlineKeyboardButton("💎 Status", callback_data="status")],
+        [InlineKeyboardButton("📜 Riwayat OTP", callback_data="list_otp")],
+        [InlineKeyboardButton("🗑 Hapus Nomor", callback_data="delete_number")],
+        [InlineKeyboardButton("💎 Status", callback_data="status")]
     ]
     if is_admin:
-        rows.append([InlineKeyboardButton("➕ Add Saldo", callback_data="admin_addsaldo"),
-                     InlineKeyboardButton("💎 Set Premium", callback_data="admin_setpremium")])
-        rows.append([InlineKeyboardButton("🚀 Broadcast", callback_data="admin_broadcast"),
-                     InlineKeyboardButton("📋 Daftar User", callback_data="admin_users")])
+        rows.append([
+            InlineKeyboardButton("➕ Add Saldo", callback_data="admin_addsaldo"),
+            InlineKeyboardButton("💎 Set Premium", callback_data="admin_setpremium")
+        ])
+        rows.append([
+            InlineKeyboardButton("🚀 Broadcast", callback_data="admin_broadcast"),
+            InlineKeyboardButton("📋 Daftar User", callback_data="admin_users")
+        ])
     rows.append([InlineKeyboardButton("👨‍💻 Developer", callback_data="developer")])
     return InlineKeyboardMarkup(rows)
 
 # ---------------- HANDLERS ----------------
-# /start
-async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     ensure_user(user.id, user.username or user.first_name)
-    txt = build_dashboard_text(user.id, user.first_name)
-    kb = build_main_keyboard(user.id == ADMIN_ID)
+    text = build_dashboard(user.id, user.first_name)
+    kb = build_keyboard(user.id == ADMIN_ID)
     try:
-        # send photo with caption+keyboard (preferred)
-        await context.bot.send_photo(chat_id=update.effective_chat.id, photo=BANNER_URL, caption=txt, reply_markup=kb)
+        await context.bot.send_photo(chat_id=user.id, photo=BANNER_URL, caption=text, reply_markup=kb)
     except Exception:
-        # fallback to text
-        await update.message.reply_text(txt, reply_markup=kb)
+        await context.bot.send_message(chat_id=user.id, text=text, reply_markup=kb)
 
-# callback/tombol utama
-async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    user = query.from_user
+async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    q = update.callback_query
+    await q.answer()
+    user = q.from_user
     ensure_user(user.id, user.username or user.first_name)
-    is_admin = (user.id == ADMIN_ID)
-    data = query.data
 
-    # ------------- USER FLOWS -------------
-    if data == "get_number":
-        # show list of numbers from provider
-        if query.message.photo:
-            await query.edit_message_caption(caption="📱 Mencari nomor tersedia... Mohon tunggu.")
-        else:
-            await query.edit_message_text("📱 Mencari nomor tersedia... Mohon tunggu.")
-        numbers = await provider.list_available_numbers()
-        kb = [[InlineKeyboardButton(n, callback_data=f"choose:{n}")] for n in numbers]
-        kb.append([InlineKeyboardButton("🔙 Kembali", callback_data="back_home")])
-        markup = InlineKeyboardMarkup(kb)
-        if query.message.photo:
-            await query.edit_message_caption(caption="Pilih nomor yang tersedia:", reply_markup=markup)
-        else:
-            await query.edit_message_text("Pilih nomor yang tersedia:", reply_markup=markup)
+    # ---------- User ----------
+    if q.data == "developer":
+        await q.edit_message_caption(caption=f"👨‍💻 Developer: {DEV_USERNAME}")
         return
 
-    if data.startswith("choose:"):
-        # user chose a number -> assign and start monitor
-        number = data.split(":",1)[1]
-        nid = add_number_for_user(user.id, number, "DummyProvider")
-        async def on_msg_cb(text):
-            add_message(nid, text)
-            # send to user
-            try:
-                await context.bot.send_message(chat_id=user.id, text=f"🔑 OTP Masuk untuk {number}:\n\n{text}")
-            except Exception:
-                logger.exception("Gagal kirim OTP ke user.")
-        task = await provider.start_monitor(number, lambda t: asyncio.create_task(on_msg_cb(t)))
-        monitor_map[nid] = task
-        out = f"✅ Nomor {number} aktif. Menunggu OTP masuk..."
-        if query.message.photo:
-            await query.edit_message_caption(caption=out)
-        else:
-            await query.edit_message_text(out)
-        return
-
-    if data == "list_otp":
-        rows = list_messages_for_user(user.id)
-        if not rows:
-            out = "📜 Belum ada OTP / pesan untuk akun ini."
-            if query.message.photo:
-                await query.edit_message_caption(caption=out)
-            else:
-                await query.edit_message_text(out)
-            return
-        parts = []
-        for text_msg, at, number in rows[:40]:
-            parts.append(f"{number}\n{text_msg}\n— {at}")
-        content = "\n\n".join(parts)
-        if query.message.photo:
-            await query.edit_message_caption(caption=f"📜 Riwayat pesan:\n\n{content}")
-        else:
-            await query.edit_message_text(f"📜 Riwayat pesan:\n\n{content}")
-        return
-
-    if data == "delete_number":
-        active = get_active_number(user.id)
-        if not active:
-            out = "❌ Tidak ada nomor aktif."
-            if query.message.photo:
-                await query.edit_message_caption(caption=out)
-            else:
-                await query.edit_message_text(out)
-            return
-        nid, num, prov = active
-        t = monitor_map.get(nid)
-        if t:
-            t.cancel()
-        deactivate_number_by_id(nid)
-        out = f"🗑 Nomor {num} berhasil dihapus."
-        if query.message.photo:
-            await query.edit_message_caption(caption=out)
-        else:
-            await query.edit_message_text(out)
-        return
-
-    if data == "copy_active":
-        active = get_active_number(user.id)
-        if not active:
-            out = "❌ Tidak ada nomor aktif."
-        else:
-            _, num, _ = active
-            out = f"🔖 Nomor aktif: {num}"
-        if query.message.photo:
-            await query.edit_message_caption(caption=out)
-        else:
-            await query.edit_message_text(out)
-        return
-
-    if data == "invite":
-        me = await context.bot.get_me()
-        link = f"https://t.me/{me.username}?start={user.id}"
-        out = f"👥 Bagikan link ini ke teman:\n{link}"
-        if query.message.photo:
-            await query.edit_message_caption(caption=out)
-        else:
-            await query.edit_message_text(out)
-        return
-
-    if data == "tools":
-        kb = [
-            [InlineKeyboardButton("🔄 Refresh Dashboard", callback_data="back_home")],
-            [InlineKeyboardButton("🔁 Ganti Provider (Admin only)", callback_data="switch_provider")],
-            [InlineKeyboardButton("🔙 Kembali", callback_data="back_home")],
-        ]
-        if query.message.photo:
-            await query.edit_message_caption(caption="🛠 Tools Menu", reply_markup=InlineKeyboardMarkup(kb))
-        else:
-            await query.edit_message_text("🛠 Tools Menu", reply_markup=InlineKeyboardMarkup(kb))
-        return
-
-    if data == "status":
+    if q.data == "status":
         u = get_user(user.id)
-        out = f"💎 Status: {u[3]} | Limit: {u[4]}"
-        if query.message.photo:
-            await query.edit_message_caption(caption=out)
-        else:
-            await query.edit_message_text(out)
+        msg = f"💎 Status kamu: {u[3]} | Limit: {u[4] if u[4] else 'Unlimited'}"
+        await q.edit_message_caption(caption=msg)
         return
 
-    # ------------- ADMIN FLOWS (all via tombol + message input) -------------
-    if data == "admin_users":
-        if not is_admin:
-            await query.answer("Hanya admin.", show_alert=True)
+    if q.data == "get_number":
+        # Cek user sudah punya nomor aktif?
+        act = get_active_number(user.id)
+        if act:
+            await q.edit_message_caption(caption=f"⚠️ Kamu sudah punya nomor aktif: {act[1]}")
             return
-        rows = list_users(60)
-        if not rows:
-            out = "Belum ada user."
-            if query.message.photo:
-                await query.edit_message_caption(caption=out)
-            else:
-                await query.edit_message_text(out)
-            return
-        # build keyboard paged (max 8 per page)
-        kb = []
-        for uid, uname, role, status, limit in rows[:40]:
-            label = f"{uname or uid} | {status}"
-            kb.append([InlineKeyboardButton(label, callback_data=f"admin_user_select:{uid}")])
-        kb.append([InlineKeyboardButton("🔙 Kembali", callback_data="back_home")])
-        if query.message.photo:
-            await query.edit_message_caption(caption="📋 Pilih user untuk lihat / kelola:", reply_markup=InlineKeyboardMarkup(kb))
-        else:
-            await query.edit_message_text("📋 Pilih user untuk lihat / kelola:", reply_markup=InlineKeyboardMarkup(kb))
+        # Ambil nomor random dari pool
+        numbers = await provider.list_numbers()
+        pick = random.choice(numbers)
+        nid = add_number(user.id, pick)
+        await provider.start_monitor(nid, pick, user.id, context)
+        await q.edit_message_caption(caption=f"✅ Nomor berhasil diambil:\n📱 {pick}\nOTP akan otomatis masuk di sini.")
         return
 
-    if data.startswith("admin_user_select:"):
-        if not is_admin:
-            await query.answer("Hanya admin.", show_alert=True)
+    if q.data == "delete_number":
+        act = get_active_number(user.id)
+        if not act:
+            await q.edit_message_caption(caption="⚠️ Kamu tidak punya nomor aktif.")
             return
-        uid = int(data.split(":",1)[1])
-        tu = get_user(uid)
-        if not tu:
-            await query.edit_message_text("User tidak ditemukan.")
-            return
-        _, uname, role, status, limit = tu
-        out = f"🧾 User: {uname or uid}\nRole: {role}\nStatus: {status}\nLimit: {limit}"
-        kb = [
-            [InlineKeyboardButton("➕ Tambah Saldo (Top-up)", callback_data=f"admin_addsaldo_select:{uid}")],
-            [InlineKeyboardButton("💎 Set Premium", callback_data=f"admin_setpremium_select:{uid}")],
-            [InlineKeyboardButton("🔙 Kembali", callback_data="admin_users")]
-        ]
-        if query.message.photo:
-            await query.edit_message_caption(caption=out, reply_markup=InlineKeyboardMarkup(kb))
-        else:
-            await query.edit_message_text(out, reply_markup=InlineKeyboardMarkup(kb))
+        deactivate_number(user.id)
+        provider.stop(user.id)
+        await q.edit_message_caption(caption=f"🗑 Nomor {act[1]} sudah dihapus.")
         return
 
-    # Admin add saldo: choose user -> then ask amount via message
-    if data.startswith("admin_addsaldo_select:"):
-        if not is_admin:
-            await query.answer("Hanya admin.", show_alert=True)
+    if q.data == "list_otp":
+        msgs = list_messages(user.id)
+        if not msgs:
+            await q.edit_message_caption(caption="📭 Belum ada OTP yang masuk.")
             return
-        target_id = int(data.split(":",1)[1])
-        # set pending state in context.user_data
-        context.user_data['pending_addsaldo'] = target_id
-        prompt = f"Masukkan jumlah top-up untuk user {target_id} (kirim angka saja), atau tekan Batal."
-        kb = [[InlineKeyboardButton("Batal", callback_data="admin_cancel")]]
-        if query.message.photo:
-            await query.edit_message_caption(caption=prompt, reply_markup=InlineKeyboardMarkup(kb))
-        else:
-            await query.edit_message_text(prompt, reply_markup=InlineKeyboardMarkup(kb))
+        lines = [f"{t} ({ts[:19]})" for t, ts in msgs]
+        await q.edit_message_caption(caption="📜 Riwayat OTP:\n" + "\n".join(lines))
         return
 
-    if data == "admin_cancel":
-        # clear any pending states
-        context.user_data.pop('pending_addsaldo', None)
-        context.user_data.pop('pending_broadcast', None)
-        out = "Operasi dibatalkan."
-        if query.message.photo:
-            await query.edit_message_caption(caption=out)
-        else:
-            await query.edit_message_text(out)
-        return
-
-    # Admin set premium select
-    if data.startswith("admin_setpremium_select:"):
-        if not is_admin:
-            await query.answer("Hanya admin.", show_alert=True)
+    # ---------- Admin ----------
+    if user.id == ADMIN_ID:
+        if q.data == "admin_users":
+            rows = list_all_users()
+            msg = "📋 Daftar user:\n" + "\n".join([f"{uid} | {uname} | {status} | {limit}" for uid, uname, status, limit in rows])
+            await q.edit_message_caption(caption=msg)
             return
-        target_id = int(data.split(":",1)[1])
-        set_user_status(target_id, "premium")
-        out = f"✅ User {target_id} telah di-set ke PREMIUM."
-        if query.message.photo:
-            await query.edit_message_caption(caption=out)
-        else:
-            await query.edit_message_text(out)
-        return
 
-    # Admin broadcast entry: set pending flag then expect next message text as broadcast
-    if data == "admin_broadcast":
-        if not is_admin:
-            await query.answer("Hanya admin.", show_alert=True)
+        if q.data == "admin_addsaldo":
+            rows = list_all_users()
+            kb = []
+            for uid, uname, status, limit in rows:
+                kb.append([InlineKeyboardButton(f"{uname or uid} | {status}", callback_data=f"admin_addsaldo_select:{uid}")])
+            await q.edit_message_caption(caption="📋 Pilih user untuk tambah saldo:", reply_markup=InlineKeyboardMarkup(kb))
             return
-        context.user_data['pending_broadcast'] = True
-        prompt = "🚀 Kirim pesan broadcast sekarang (balas pesan ini dengan teks yang ingin dikirim), atau tekan Batal."
-        kb = [[InlineKeyboardButton("Batal", callback_data="admin_cancel")]]
-        if query.message.photo:
-            await query.edit_message_caption(caption=prompt, reply_markup=InlineKeyboardMarkup(kb))
-        else:
-            await query.edit_message_text(prompt, reply_markup=InlineKeyboardMarkup(kb))
-        return
 
-    # admin setpremium (top-level)
-    if data == "admin_setpremium":
-        if not is_admin:
-            await query.answer("Hanya admin.", show_alert=True)
+        if q.data.startswith("admin_addsaldo_select:"):
+            target_id = int(q.data.split(":")[1])
+            u = get_user(target_id)
+            new_limit = (u[4] or 0) + 10
+            update_user_limit(target_id, new_limit)
+            await q.edit_message_caption(caption=f"✅ Saldo user {target_id} sudah ditambah 10. Total: {new_limit}")
             return
-        # show user list to select
-        rows = list_users(100)
-        kb = [[InlineKeyboardButton(f"{uname or uid} | {status}", callback_data=f"admin_setpremium_select:{uid}")] for uid, uname, _, status, _ in rows[:40]]
-        kb.append([InlineKeyboardButton("🔙 Kembali", callback_data="back_home")])
-        if query.message.photo:
-            await query.edit_message_caption(caption="Pilih user untuk set premium:", reply_markup=InlineKeyboardMarkup(kb))
-        else:
-            await query.edit_message_text("Pilih user untuk set premium:", reply_markup=InlineKeyboardMarkup(kb))
-        return
 
-    # admin addsaldo root: show user list
-    if data == "admin_addsaldo":
-        if not is_admin:
-            await query.answer("Hanya admin.", show_alert=True)
+        if q.data == "admin_setpremium":
+            rows = list_all_users()
+            kb = []
+            for uid, uname, status, limit in rows:
+                kb.append([InlineKeyboardButton(f"{uname or uid} | {status}", callback_data=f"admin_setpremium_select:{uid}")])
+            await q.edit_message_caption(caption="📋 Pilih user untuk set Premium:", reply_markup=InlineKeyboardMarkup(kb))
             return
-        rows = list_all_users()  # ambil daftar user dari database
 
-kb = []
-for uid, uname, status, limit in rows:
-    kb.append([
-        InlineKeyboardButton(
-            f"{uname or uid} | {status}",
-            callback_data=f"admin_addsaldo_select:{uid}"
-        )
-    ])
+        if q.data.startswith("admin_setpremium_select:"):
+            target_id = int(q.data.split(":")[1])
+            set_user_status(target_id, "premium")
+            await q.edit_message_caption(caption=f"✅ User {target_id} sekarang Premium.")
+            return
+
+        if q.data == "admin_broadcast":
+            context.user_data["await_broadcast"] = True
+            await q.edit_message_caption(caption="🚀 Kirim teks broadcast (balas pesan ini).")
+            return
+
+async def handle_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if context.user_data.get("await_broadcast") and update.effective_user.id == ADMIN_ID:
+        text = update.message.text
+        rows = list_all_users()
+        for uid, _, _, _ in rows:
+            try:
+                await context.bot.send_message(chat_id=uid, text=f"📣 {text}")
+            except:
+                pass
+        context.user_data["await_broadcast"] = False
+        await update.message.reply_text("✅ Broadcast terkirim.")
+
+# ---------------- MAIN ----------------
+def main():
+    init_db()
+    app = Application.builder().token(BOT_TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(buttons))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_broadcast))
+    logger.info("Bot jalan...")
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
