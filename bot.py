@@ -513,8 +513,9 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not is_admin:
             await query.answer("Hanya admin.", show_alert=True)
             return
-        rows = list_users(100)
-        kb = []
+        rows = list_all_users()  # ambil daftar user dari database
+
+kb = []
 for uid, uname, status, limit in rows:
     kb.append([
         InlineKeyboardButton(
