@@ -514,4 +514,11 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.answer("Hanya admin.", show_alert=True)
             return
         rows = list_users(100)
-        kb = [[InlineKeyboardButton(f"{uname or uid} | {status}", callback_data=f"admin_addsaldo_select:{uid}")] for uid, uname, _, status,
+        kb = []
+for uid, uname, status, limit in rows:
+    kb.append([
+        InlineKeyboardButton(
+            f"{uname or uid} | {status}",
+            callback_data=f"admin_addsaldo_select:{uid}"
+        )
+    ])
